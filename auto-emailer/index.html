@@ -109,18 +109,44 @@
       </div>
 
       <!-- 4. Start from Row (Optional) -->
-      <div class="mb-4">
-        <label class="form-label d-flex align-items-center">
-          4. Start from Row (Optional)
-          <i class="bi bi-question-circle-fill help-icon" 
-             data-bs-toggle="tooltip" 
-             title="Enter a row number to start sending from (1 = first data row). Leave blank to start from the beginning."></i>
-        </label>
-        <input type="number" id="startRow" class="form-control" min="1" placeholder="Leave blank to start from row 1">
-        <small class="text-muted mt-1 d-block">Enter a number to start from a specific row (e.g., 5 to start from the 5th data row)</small>
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <label class="form-label d-flex align-items-center">
+            4. Start from Row (Optional)
+            <i class="bi bi-question-circle-fill help-icon" 
+               data-bs-toggle="tooltip" 
+               title="Enter a row number to start sending from (1 = first data row). Leave blank to start from the beginning."></i>
+          </label>
+          <input type="number" id="startRow" class="form-control" min="1" placeholder="Leave blank to start from row 1">
+          <small class="text-muted mt-1 d-block">Start from a specific row (e.g., 5)</small>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label d-flex align-items-center">
+            5. Limit Emails (Optional)
+            <i class="bi bi-question-circle-fill help-icon" 
+               data-bs-toggle="tooltip" 
+               title="Limit the number of emails to send. Leave blank to send all remaining emails."></i>
+          </label>
+          <input type="number" id="limitEmails" class="form-control" min="1" placeholder="Leave blank for no limit">
+          <small class="text-muted mt-1 d-block">Max emails to send (e.g., 10)</small>
+        </div>
       </div>
 
-      <!-- 4. Run Buttons -->
+      <!-- 6. Store Results in Sheet -->
+      <div class="mb-4">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="storeResults" checked>
+          <label class="form-check-label d-flex align-items-center" for="storeResults">
+            Store results in spreadsheet
+            <i class="bi bi-question-circle-fill help-icon" 
+               data-bs-toggle="tooltip" 
+               title="When checked, adds columns to track which emails were sent and any errors. Uncheck to send emails without updating the spreadsheet."></i>
+          </label>
+        </div>
+        <small class="text-muted d-block">Adds 'Email Sent' and 'Email Error' columns with timestamps to track progress</small>
+      </div>
+
+      <!-- 7. Run Buttons -->
       <div class="row mt-4">
         <div class="col-md-6 mb-2">
           <button onclick="sendTest()" class="btn btn-warning w-100 p-3 fw-bold" id="testBtn">
@@ -328,7 +354,7 @@
       console.log("Test email request sent...");
     }
     
-    // Start sending emails
+    // Start sending emails with progress tracking
     console.log("Sending Email function");
     function startSending() {
       console.log("Start Email sending...");
@@ -338,6 +364,9 @@
       const emailColumn = document.getElementById('emailColumn').value;
       const startRowInput = document.getElementById('startRow').value;
       const startRow = startRowInput ? parseInt(startRowInput) : 1;
+      const limitEmailsInput = document.getElementById('limitEmails').value;
+      const limitEmails = limitEmailsInput ? parseInt(limitEmailsInput) : null;
+      const storeResults = document.getElementById('storeResults').checked;
 
       if (!sheetId || !draftSubject || !emailColumn) {
         alert('Please select a spreadsheet, draft, and specify the email column.');
@@ -350,6 +379,12 @@
         return;
       }
 
+      // Validate limitEmails if provided
+      if (limitEmails !== null && (limitEmails < 1 || !Number.isInteger(limitEmails))) {
+        alert('Limit emails must be a positive integer (1 or greater).');
+        return;
+      }
+
       // Validate startRow is within data range
       if (previewData && previewData.rows && startRow > previewData.rows.length) {
         alert(`Start row (${startRow}) exceeds total number of data rows (${previewData.rows.length}). Please enter a valid row number.`);
@@ -357,19 +392,94 @@
       }
 
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Initializing...';
       document.getElementById('status').innerHTML = '';
 
-      google.script.run.withSuccessHandler(res => {
-        document.getElementById('status').innerHTML = '<span class="text-success">✅ Emails Sent Successfully!</span>';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
-      }).withFailureHandler(err => {
-        document.getElementById('status').innerHTML = '<span class="text-danger">❌ Error: ' + err.message + '</span>';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
-      }).processAndSend(sheetId, draftSubject, emailColumn, startRow);
-      console.log("Emails sent...");
+      // Initialize batch
+      google.script.run
+        .withSuccessHandler(function(batchInfo) {
+          console.log("Batch initialized:", batchInfo);
+          sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults);
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('status').innerHTML = '<span class="text-danger">❌ Error: ' + err.message + '</span>';
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+        })
+        .sendEmailBatch(sheetId, draftSubject, emailColumn, startRow, limitEmails, storeResults);
+    }
+
+    // Send emails one by one with progress updates
+    function sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults) {
+      let currentRow = batchInfo.startRow;
+      let emailsSent = 0;
+      let consecutiveErrors = 0;
+      const MAX_CONSECUTIVE_ERRORS = 5;
+      const totalRows = batchInfo.totalRows;
+
+      function sendNext() {
+        if (currentRow >= batchInfo.startRow + totalRows) {
+          // All done
+          document.getElementById('status').innerHTML = 
+            `<span class="text-success">✅ Complete! Sent ${emailsSent}/${totalRows} emails</span>`;
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+          return;
+        }
+
+        // Update progress display
+        const progress = currentRow - batchInfo.startRow + 1;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Sending ${progress}/${totalRows}...`;
+        document.getElementById('status').innerHTML = 
+          `<span class="text-info">📧 Sending email ${progress}/${totalRows}...</span>`;
+
+        // Send single email
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              emailsSent++;
+              consecutiveErrors = 0;
+            } else {
+              consecutiveErrors++;
+              console.log(`Error on row ${currentRow}: ${result.error}`);
+            }
+
+            // Check if we've hit consecutive error limit
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+              document.getElementById('status').innerHTML = 
+                `<span class="text-danger">❌ Stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Last error: ${result.error}</span>`;
+              btn.disabled = false;
+              btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+              return;
+            }
+
+            // Wait 100ms then send next
+            currentRow++;
+            setTimeout(sendNext, 100);
+          })
+          .withFailureHandler(function(err) {
+            consecutiveErrors++;
+            console.error(`Failed to send email for row ${currentRow}:`, err);
+            
+            // Check if we've hit consecutive error limit
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+              document.getElementById('status').innerHTML = 
+                `<span class="text-danger">❌ Stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Last error: ${err.message}</span>`;
+              btn.disabled = false;
+              btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+              return;
+            }
+
+            // Continue to next row despite error
+            currentRow++;
+            setTimeout(sendNext, 100);
+          })
+          .sendSingleEmail(sheetId, draftSubject, emailColumn, currentRow, 
+                          batchInfo.sentColIndex, batchInfo.errorColIndex, storeResults);
+      }
+
+      // Start sending
+      sendNext();
     }
   </script>
 </body>

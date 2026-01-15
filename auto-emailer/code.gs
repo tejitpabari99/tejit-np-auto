@@ -343,7 +343,7 @@ function findColumnIndex(headers, columnIdentifier) {
 }
 
 /**
- * The core logic to send emails.
+ * The core logic to send emails with progress tracking and error handling.
  * @param {string} sheetId - The ID of the spreadsheet
  * @param {string} draftSubject - The subject of the Gmail draft
  * @param {string} emailColumn - The column containing email addresses
@@ -352,7 +352,10 @@ function findColumnIndex(headers, columnIdentifier) {
 function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1) {
   console.log("Code.gs: Process and Send started");
   try {
+    const spreadsheet = SpreadsheetApp.openById(sheetId);
+    const sheet = spreadsheet.getSheets()[0];
     const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    
     console.log(`Code.gs: Data rows - ${emailContext.rows.length}`);
     console.log(`Code.gs: Email column index - ${emailContext.emailColIndex}`);
     console.log(`Code.gs: Variables found in template - ${emailContext.variablesInTemplate.join(', ')}`);
@@ -367,43 +370,95 @@ function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1) {
       throw new Error(`Start row (${startRow}) exceeds total number of data rows (${emailContext.rows.length}).`);
     }
     
+    // Get current timestamp for column names
+    const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    const sentColumnName = `Email Sent ${timestamp}`;
+    const errorColumnName = `Email Error ${timestamp}`;
+    
+    // Add timestamp columns if they don't exist
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    let sentColIndex = headers.indexOf(sentColumnName) + 1;
+    let errorColIndex = headers.indexOf(errorColumnName) + 1;
+    
+    if (sentColIndex === 0) {
+      // Add new columns
+      const lastCol = sheet.getLastColumn();
+      sentColIndex = lastCol + 1;
+      errorColIndex = lastCol + 2;
+      sheet.getRange(1, sentColIndex).setValue(sentColumnName);
+      sheet.getRange(1, errorColIndex).setValue(errorColumnName);
+    }
+    
     let emailsSent = 0;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
     
     // Start from startRow - 1 (since array is 0-indexed but user input is 1-indexed)
     const rowsToProcess = emailContext.rows.slice(startRow - 1);
+    const totalToProcess = rowsToProcess.length;
     
-    rowsToProcess.forEach((row, index) => {
+    for (let index = 0; index < rowsToProcess.length; index++) {
+      const row = rowsToProcess[index];
       const actualRowNumber = startRow + index;
+      const sheetRowNumber = actualRowNumber + 1; // +1 for header row
+      
       try {
         const emailData = processEmailRow(row, emailContext);
         
         if (!emailData.to || emailData.to.trim() === '') {
-          console.log(`Code.gs: Skipping row ${index + 2} - no email address`);
-          return;
+          console.log(`Code.gs: Skipping row ${sheetRowNumber} - no email address`);
+          sheet.getRange(sheetRowNumber, sentColIndex).setValue(false);
+          sheet.getRange(sheetRowNumber, errorColIndex).setValue("No email address");
+          consecutiveErrors++;
+          continue;
         }
         
-        // Use the proper sendEmail format from Google's Mail Merge script
-        // See https://developers.google.com/apps-script/reference/gmail/gmail-app#sendEmail(String,String,String,Object)
+        // Send the email
         GmailApp.sendEmail(emailData.to, emailData.subject, emailData.text, {
           htmlBody: emailData.html,
           attachments: emailData.attachments,
           inlineImages: emailData.inlineImages
         });
         
-        emailsSent++;
+        // Mark as sent with timestamp
+        const sentTimestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+        sheet.getRange(sheetRowNumber, sentColIndex).setValue(true);
+        sheet.getRange(sheetRowNumber, errorColIndex).setValue("");
         
+        emailsSent++;
+        consecutiveErrors = 0; // Reset consecutive error counter
+        
+        SpreadsheetApp.flush(); // Ensure updates are written to sheet
+        
+        // Log progress
+        console.log(`Code.gs: Sent ${emailsSent}/${totalToProcess} emails`);
+        
+        // Wait 100ms between emails
         Utilities.sleep(100);
+        
       } catch (error) {
-        Logger.log(`Error sending email to row ${index + 2}: ${error.message}`);
+        consecutiveErrors++;
+        const errorMsg = error.message || "Unknown error";
+        console.log(`Code.gs: Error sending email to row ${sheetRowNumber}: ${errorMsg}`);
+        
+        // Mark as failed with error message
+        sheet.getRange(sheetRowNumber, sentColIndex).setValue(false);
+        sheet.getRange(sheetRowNumber, errorColIndex).setValue(errorMsg);
+        SpreadsheetApp.flush();
+        
+        // Check if we've hit the consecutive error limit
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          throw new Error(`Stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Last error: ${errorMsg}`);
+        }
       }
-    });
+    }
 
-    console.log(`Code.gs: Emails sent - ${emailsSent}, totalRows ${emailContext.rows.length}`);
+    console.log(`Code.gs: Emails sent - ${emailsSent}, totalRows ${totalToProcess}`);
     
     return {
       success: true,
       emailsSent: emailsSent,
-      totalRows: emailContext.rows.length
+      totalRows: totalToProcess
     };
   } catch (error) {
     throw new Error(`Email sending failed: ${error.message}`);
@@ -434,5 +489,133 @@ function sendTestEmail(sheetId, draftSubject, emailColumn) {
     return { success: true, sentTo: userEmail };
   } catch (error) {
     throw new Error(`Failed to send test email: ${error.message}`);
+  }
+}
+
+/**
+ * Send emails one at a time and report progress back to client
+ * This allows for real-time progress updates in the UI
+ */
+function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitEmails = null, storeResults = true) {
+  console.log("Code.gs: Send Email Batch started");
+  
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetId);
+    const sheet = spreadsheet.getSheets()[0];
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    
+    // Validate startRow
+    if (startRow < 1 || !Number.isInteger(startRow)) {
+      throw new Error(`Invalid start row: ${startRow}. Must be a positive integer.`);
+    }
+    
+    if (startRow > emailContext.rows.length) {
+      throw new Error(`Start row (${startRow}) exceeds total number of data rows (${emailContext.rows.length}).`);
+    }
+    
+    // Validate limitEmails if provided
+    if (limitEmails !== null && (limitEmails < 1 || !Number.isInteger(limitEmails))) {
+      throw new Error(`Invalid limit: ${limitEmails}. Must be a positive integer.`);
+    }
+    
+    let sentColIndex = null;
+    let errorColIndex = null;
+    
+    // Only create columns if storeResults is true
+    if (storeResults) {
+      // Get current timestamp for column names
+      const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+      const sentColumnName = `Email Sent ${timestamp}`;
+      const errorColumnName = `Email Error ${timestamp}`;
+      
+      // Add timestamp columns if they don't exist
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      sentColIndex = headers.indexOf(sentColumnName) + 1;
+      errorColIndex = headers.indexOf(errorColumnName) + 1;
+      
+      if (sentColIndex === 0) {
+        // Add new columns
+        const lastCol = sheet.getLastColumn();
+        sentColIndex = lastCol + 1;
+        errorColIndex = lastCol + 2;
+        sheet.getRange(1, sentColIndex).setValue(sentColumnName);
+        sheet.getRange(1, errorColIndex).setValue(errorColumnName);
+        SpreadsheetApp.flush();
+      }
+    }
+    
+    // Calculate total rows to process
+    const rowsToProcess = emailContext.rows.slice(startRow - 1);
+    let totalToProcess = rowsToProcess.length;
+    
+    // Apply limit if specified
+    if (limitEmails !== null && limitEmails < totalToProcess) {
+      totalToProcess = limitEmails;
+    }
+    
+    return {
+      totalRows: totalToProcess,
+      sentColIndex: sentColIndex,
+      errorColIndex: errorColIndex,
+      startRow: startRow
+    };
+    
+  } catch (error) {
+    throw new Error(`Batch setup failed: ${error.message}`);
+  }
+}
+
+/**
+ * Send a single email for the specified row
+ */
+function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIndex, errorColIndex, storeResults = true) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetId);
+    const sheet = spreadsheet.getSheets()[0];
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    
+    const row = emailContext.rows[rowIndex - 1]; // Convert to 0-based
+    const sheetRowNumber = rowIndex + 1; // +1 for header row
+    
+    const emailData = processEmailRow(row, emailContext);
+    
+    if (!emailData.to || emailData.to.trim() === '') {
+      if (storeResults && sentColIndex && errorColIndex) {
+        sheet.getRange(sheetRowNumber, sentColIndex).setValue(false);
+        sheet.getRange(sheetRowNumber, errorColIndex).setValue("No email address");
+        SpreadsheetApp.flush();
+      }
+      return { success: false, error: "No email address" };
+    }
+    
+    // Send the email
+    GmailApp.sendEmail(emailData.to, emailData.subject, emailData.text, {
+      htmlBody: emailData.html,
+      attachments: emailData.attachments,
+      inlineImages: emailData.inlineImages
+    });
+    
+    // Mark as sent only if storeResults is true
+    if (storeResults && sentColIndex && errorColIndex) {
+      sheet.getRange(sheetRowNumber, sentColIndex).setValue(true);
+      sheet.getRange(sheetRowNumber, errorColIndex).setValue("");
+      SpreadsheetApp.flush();
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    if (storeResults && sentColIndex && errorColIndex) {
+      const spreadsheet = SpreadsheetApp.openById(sheetId);
+      const sheet = spreadsheet.getSheets()[0];
+      const sheetRowNumber = rowIndex + 1;
+      
+      // Mark as failed with error message
+      sheet.getRange(sheetRowNumber, sentColIndex).setValue(false);
+      sheet.getRange(sheetRowNumber, errorColIndex).setValue(error.message);
+      SpreadsheetApp.flush();
+    }
+    
+    return { success: false, error: error.message };
   }
 }
