@@ -10,19 +10,6 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Fetches the saved key for the specific user
-function getSavedKey() {
-  console.log("Code.gs: Fetching saved key");
-  return PropertiesService.getUserProperties().getProperty('GEMINI_KEY') || "";
-}
-
-// Saves the key so the NGO staff doesn't have to paste it next year
-function saveKey(key) {
-  console.log("Code.gs: Saving key...");
-  PropertiesService.getUserProperties().setProperty('GEMINI_KEY', key);
-  return "Key saved securely!";
-}
-
 /**
  * Fetches recent Google Sheets from the user's Drive.
  */
@@ -31,7 +18,7 @@ function getRecentSheets() {
   const files = DriveApp.searchFiles('mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false');
   const sheets = [];
   let count = 0;
-  // Limit to first 100 sheets for performance
+  // Limit to first 50 sheets for performance
   while (files.hasNext() && count < 50) {
     const file = files.next();
     sheets.push({name: file.getName(), id: file.getId()});
@@ -98,15 +85,17 @@ function getPreviewData(sheetId) {
 }
 
 /**
- * Extract variables from template text (e.g., {{First Name}}, {{Company}})
+ * Extract variables from template text (handles HTML tags inside braces)
  */
 function extractVariables(text) {
-  const variablePattern = /\{\{([^}]+)\}\}/g;
+  const variablePattern = /\{\{([\s\S]+?)\}\}/g;
   const variables = [];
   let match;
+  
   while ((match = variablePattern.exec(text)) !== null) {
-    const varName = match[1].trim();
-    if (!variables.includes(varName)) {
+    // Strip HTML tags from the match to get the clean variable name
+    const varName = match[1].replace(/<[^>]+>/g, '').trim();
+    if (varName && !variables.includes(varName)) {
       variables.push(varName);
     }
   }
@@ -132,17 +121,163 @@ function mapVariablesToColumns(headers, variables) {
 }
 
 /**
- * Get draft by subject from Gmail
+ * Get a Gmail draft message by matching the subject line.
+ * Adapted from Google's Mail Merge script to properly handle attachments and inline images.
+ * @param {string} subject_line to search for draft message
+ * @return {object} containing the subject, plain and html message body and attachments
  */
-function getDraftBySubject(draftSubject) {
-  const drafts = GmailApp.getDrafts();
-  const draft = drafts.find(d => d.getMessage().getSubject() === draftSubject);
-  
-  if (!draft) {
-    throw new Error(`Draft with subject "${draftSubject}" not found`);
+function getGmailTemplateFromDrafts_(subject_line) {
+  try {
+    // get drafts
+    const drafts = GmailApp.getDrafts();
+    // filter the drafts that match subject line
+    const draft = drafts.filter(d => d.getMessage().getSubject() === subject_line)[0];
+    
+    if (!draft) {
+      throw new Error(`Draft with subject "${subject_line}" not found`);
+    }
+    
+    // get the message object
+    const msg = draft.getMessage();
+
+    // Handles inline images and attachments so they can be included in the merge
+    // Based on https://stackoverflow.com/a/65813881/1027723
+    // Gets all attachments and inline image attachments
+    const allInlineImages = draft.getMessage().getAttachments({
+      includeInlineImages: true,
+      includeAttachments: false,
+    });
+    const attachments = draft
+      .getMessage()
+      .getAttachments({ includeInlineImages: false });
+    const htmlBody = msg.getBody();
+
+    // Creates an inline image object with the image name as key
+    // (can't rely on image index as array based on insert order)
+    const img_obj = allInlineImages.reduce((obj, i) => {
+      obj[i.getName()] = i;
+      return obj;
+    }, {});
+
+    //Regexp searches for all img string positions with cid
+    const imgexp = /<img.*?src="cid:(.*?)".*?alt="(.*?)"[^\>]+>/g;
+    const matches = [...htmlBody.matchAll(imgexp)];
+
+    //Initiates the allInlineImages object
+    const inlineImagesObj = {};
+    for (const match of matches) {
+      inlineImagesObj[match[1]] = img_obj[match[2]];
+    }
+
+    return {
+      message: {
+        subject: subject_line,
+        text: msg.getPlainBody(),
+        html: htmlBody,
+      },
+      attachments: attachments,
+      inlineImages: inlineImagesObj,
+    };
+  } catch (e) {
+    throw new Error(`Oops - can't find Gmail draft: ${e.message}`);
   }
+}
+
+/**
+ * Prepares email data including HTML, Attachments, and Inline Images
+ */
+function prepareEmailContext(sheetId, draftSubject, emailColumn) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(sheetId);
+    const sheet = spreadsheet.getSheets()[0];
+    const data = sheet.getDataRange().getDisplayValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+    
+    if (rows.length === 0) throw new Error("No data rows found");
+    
+    // Use the Google Mail Merge function to get template with proper attachment/image handling
+    const emailTemplate = getGmailTemplateFromDrafts_(draftSubject);
+    
+    const variablesInTemplate = extractVariables(emailTemplate.message.html);
+    const variableColumnMap = mapVariablesToColumns(headers, variablesInTemplate);
+    const emailColIndex = findColumnIndex(headers, emailColumn);
+    
+    return {
+      rows,
+      emailTemplate,
+      variablesInTemplate,
+      variableColumnMap,
+      emailColIndex
+    };
+  } catch (error) {
+    throw new Error(`Context Prep Failed: ${error.message}`);
+  }
+}
+
+/**
+ * Fill template string with data object
+ * Adapted from Google's Mail Merge script
+ * @see https://stackoverflow.com/a/378000/1027723
+ * @param {object} template object containing subject, text, and html
+ * @param {object} data object used to replace {{}} markers
+ * @return {object} message replaced with data
+ */
+function fillInTemplateFromObject_(template, data) {
+  // We have two templates one for plain text and the html body
+  // Stringifying the object means we can do a global replace
+  let template_string = JSON.stringify(template);
+
+  // Token replacement
+  template_string = template_string.replace(/{{[^{}]+}}/g, (key) => {
+    return escapeData_(data[key.replace(/[{}]+/g, "")] || "");
+  });
+  return JSON.parse(template_string);
+}
+
+/**
+ * Escape cell data to make JSON safe
+ * From Google's Mail Merge script
+ * @see https://stackoverflow.com/a/9204218/1027723
+ * @param {string} str to escape JSON special characters from
+ * @return {string} escaped string
+ */
+function escapeData_(str) {
+  return str
+    .replace(/[\\]/g, "\\\\")
+    .replace(/[\"]/g, '\\"')
+    .replace(/[\/]/g, "\\/")
+    .replace(/[\b]/g, "\\b")
+    .replace(/[\f]/g, "\\f")
+    .replace(/[\n]/g, "\\n")
+    .replace(/[\r]/g, "\\r")
+    .replace(/[\t]/g, "\\t");
+}
+
+/**
+ * Generates the customized HTML and returns the full options object
+ */
+function processEmailRow(row, emailContext) {
+  // Create data object from row
+  const rowData = {};
+  emailContext.variablesInTemplate.forEach(varName => {
+    const colIndex = emailContext.variableColumnMap[varName];
+    rowData[varName] = (colIndex >= 0 && colIndex < row.length) ? (row[colIndex] || '') : '';
+  });
   
-  return draft;
+  // Use Google's proven fillInTemplateFromObject_ function
+  const msgObj = fillInTemplateFromObject_(emailContext.emailTemplate.message, rowData);
+  
+  const emailAddress = row[emailContext.emailColIndex - 1] || '';
+  
+  return {
+    to: emailAddress,
+    subject: msgObj.subject,
+    text: msgObj.text,
+    html: msgObj.html,
+    attachments: emailContext.emailTemplate.attachments,
+    inlineImages: emailContext.emailTemplate.inlineImages
+  };
 }
 
 /**
@@ -151,113 +286,19 @@ function getDraftBySubject(draftSubject) {
 function getEmailPreview(sheetId, draftSubject, emailColumn) {
   console.log(`Code.gs: Getting email preview for sheet ${sheetId}, draft ${draftSubject}`);
   try {
-    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-    
-    if (rows.length === 0) {
-      throw new Error("No data rows found in spreadsheet");
-    }
-    
-    const draft = getDraftBySubject(draftSubject);
-    const bodyTemplate = draft.getMessage().getPlainBody();
-    
-    // Extract and map variables
-    const variablesInTemplate = extractVariables(bodyTemplate);
-    const variableColumnMap = mapVariablesToColumns(headers, variablesInTemplate);
-    
-    // Use the first row of data to create preview
-    const firstRow = rows[0];
-    const finalBody = replaceVariables(bodyTemplate, firstRow, variableColumnMap, variablesInTemplate);
-    
-    // Use the user-selected email column
-    const emailColIndex = findColumnIndex(headers, emailColumn);
-    const emailAddress = firstRow[emailColIndex - 1] || 'recipient@example.com';
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    const emailData = processEmailRow(emailContext.rows[0], emailContext);
     
     console.log(`Code.gs: Email preview generated successfully`);
     
     return {
-      subject: draftSubject,
-      to: emailAddress,
-      body: finalBody
+      subject: emailData.subject,
+      to: emailData.to || 'recipient@example.com',
+      body: emailData.html
     };
   } catch (error) {
     throw new Error(`Failed to generate email preview: ${error.message}`);
   }
-}
-
-/**
- * Helper function to replace variables in text with values from a row
- * Common function used by both email sending and AI personalization
- */
-function replaceVariables(text, row, variableColumnMap, variablesInTemplate) {
-  let result = text;
-  
-  variablesInTemplate.forEach(varName => {
-    const colIndex = variableColumnMap[varName];
-    let value = '';
-    
-    if (colIndex >= 0 && colIndex < row.length) {
-      value = row[colIndex] || '';
-    }
-    
-    // Replace all occurrences of this variable
-    const regex = new RegExp(`\\{\\{\\s*${varName}\\s*\\}\\}`, 'g');
-    result = result.replace(regex, value);
-  });
-  
-  // Remove lines that are empty or contain only whitespace after variable replacement
-  const lines = result.split('\n');
-  const cleanedLines = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmedLine = line.trim();
-    
-    // Keep the line if it has content
-    if (trimmedLine !== '') {
-      cleanedLines.push(line);
-    } else {
-      // For empty lines, only keep them if the previous line wasn't also empty
-      // This prevents multiple consecutive blank lines
-      if (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1].trim() !== '') {
-        cleanedLines.push(line);
-      }
-    }
-  }
-  
-  // Remove any trailing blank lines
-  while (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1].trim() === '') {
-    cleanedLines.pop();
-  }
-  
-  return cleanedLines.join('\n');
-}
-
-/**
- * Calls Gemini API to personalize text.
- */
-function getAIPersonalization(prompt, apiKey) {
-  console.log("Code.gs: Get AI Personalization")
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const payload = {
-    contents: [{ parts: [{ text: `Write a warm, 1-sentence opening for an email based on: ${prompt}` }] }]
-  };
-  const response = UrlFetchApp.fetch(url, {
-    method: 'post', 
-    contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-  console.log("Code.gs: AI Personalization fetched")
-  
-  const result = JSON.parse(response.getContentText());
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-  
-  return result.candidates[0].content.parts[0].text;
 }
 
 /**
@@ -277,153 +318,78 @@ function columnLetterToIndex(letter) {
  * Helper function to find column index by name or letter
  */
 function findColumnIndex(headers, columnIdentifier) {
-  // First, try to interpret as a letter (e.g., "D")
-  if (/^[A-Za-z]+$/.test(columnIdentifier)) {
-    return columnLetterToIndex(columnIdentifier.toUpperCase());
-  }
-  
-  // Otherwise, search for column name
-  const index = headers.findIndex(h => 
-    h.toString().toLowerCase() === columnIdentifier.toLowerCase()
-  );
-  
-  if (index === -1) {
-    throw new Error(`Column "${columnIdentifier}" not found`);
-  }
-
-  console.log(`Code.gs: findColumnIndex - columnIdentified - ${columnIdentifier}, index - ${index+1}`)
-  
-  return index + 1; // Convert to 1-based index
-}
-
-/**
- * Generate AI personalization for all rows in the spreadsheet
- */
-function generateAIPersonalization(sheetId, inputColumn, outputColumn, apiKey) {
-  console.log(`Code.gs: Generating AI Personalization`)
   try {
-    const spreadsheet = SpreadsheetApp.openById(sheetId);
-    const sheet = spreadsheet.getSheets()[0];
-    const data = sheet.getDataRange().getValues();
-    
-    if (data.length < 2) {
-      throw new Error("Spreadsheet must have at least a header row and one data row");
+    // First, try to interpret as a letter (e.g., "D")
+    if (/^[A-Za-z]+$/.test(columnIdentifier)) {
+      return columnLetterToIndex(columnIdentifier.toUpperCase());
     }
     
-    const headers = data[0];
-    const rows = data.slice(1);
+    // Otherwise, search for column name
+    const index = headers.findIndex(h => 
+      h.toString().toLowerCase() === columnIdentifier.toLowerCase()
+    );
     
-    // Find column indices
-    const inputColIndex = findColumnIndex(headers, inputColumn);
-    const outputColIndex = findColumnIndex(headers, outputColumn);
-    
-    // Extract all variables from the input column template (e.g., {{First Name}}, {{Company}})
-    const variablePattern = /\{\{([^}]+)\}\}/g;
-    const variablesInTemplate = [];
-    let match;
-    
-    // Check the input column value for variables
-    const inputColValue = rows.length > 0 ? rows[0][inputColIndex - 1] : '';
-    const tempString = inputColValue ? inputColValue.toString() : '';
-    
-    while ((match = variablePattern.exec(tempString)) !== null) {
-      const varName = match[1].trim();
-      if (!variablesInTemplate.includes(varName)) {
-        variablesInTemplate.push(varName);
-      }
-    }
-    
-    // Map variable names to column indices
-    const variableColumnMap = {};
-    variablesInTemplate.forEach(varName => {
-      try {
-        const colIndex = findColumnIndex(headers, varName);
-        variableColumnMap[varName] = colIndex - 1; // Convert to 0-based for array access
-        console.log(`Code.gs: Variable "${varName}" mapped to column index ${colIndex}`)
-      } catch (error) {
-        console.log(`Code.gs: Warning - Variable "${varName}" not found in spreadsheet headers`);
-        variableColumnMap[varName] = -1; // Mark as not found
-      }
-    });
-    
-    // Generate personalization for each row
-    const results = [];
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      let inputValue = row[inputColIndex - 1]; // Convert back to 0-based for array
-      
-      // Replace variables in the input value if any exist
-      if (variablesInTemplate.length > 0 && inputValue) {
-        inputValue = replaceVariables(inputValue.toString(), row, variableColumnMap, variablesInTemplate);
-      }
-      
-      if (inputValue && inputValue.toString().trim() !== '') {
-        try {
-          const personalizedText = getAIPersonalization(inputValue, apiKey);
-          results.push(personalizedText);
-          
-          // Write to spreadsheet immediately
-          sheet.getRange(i + 2, outputColIndex).setValue(personalizedText);
-          
-          // Add a small delay to avoid rate limiting
-          Utilities.sleep(500);
-        } catch (error) {
-          results.push(`Error: ${error.message}`);
-          sheet.getRange(i + 2, outputColIndex).setValue(`Error: ${error.message}`);
-        }
-      } else {
-        results.push('');
-        sheet.getRange(i + 2, outputColIndex).setValue('');
-      }
+    if (index === -1) {
+      throw new Error(`Column "${columnIdentifier}" not found`);
     }
 
-    console.log(`Code.gs: Personalization Complete - rowsProcessed - ${rows.length}, sheetId: ${sheetId}`)
+    console.log(`Code.gs: findColumnIndex - columnIdentified - ${columnIdentifier}, index - ${index+1}`)
     
-    return {
-      success: true,
-      rowsProcessed: rows.length,
-      sheetId: sheetId
-    };
-  } catch (error) {
-    throw new Error(`Generation failed: ${error.message}`);
+    return index + 1; // Convert to 1-based index
+  }
+  catch (error) {
+    throw new Error(`Error finding column index for "${columnIdentifier}": ${error.message}`);
   }
 }
 
 /**
  * The core logic to send emails.
+ * @param {string} sheetId - The ID of the spreadsheet
+ * @param {string} draftSubject - The subject of the Gmail draft
+ * @param {string} emailColumn - The column containing email addresses
+ * @param {number} startRow - The row number to start from (1-indexed, defaults to 1)
  */
-function processAndSend(sheetId, draftSubject, emailColumn) {
+function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1) {
   console.log("Code.gs: Process and Send started");
   try {
-    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-    console.log(`Code.gs: Headers - ${rows.length}`);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    console.log(`Code.gs: Data rows - ${emailContext.rows.length}`);
+    console.log(`Code.gs: Email column index - ${emailContext.emailColIndex}`);
+    console.log(`Code.gs: Variables found in template - ${emailContext.variablesInTemplate.join(', ')}`);
+    console.log(`Code.gs: Starting from row - ${startRow}`);
     
-    const draft = getDraftBySubject(draftSubject);
-    const emailColIndex = findColumnIndex(headers, emailColumn);
-    console.log(`Code.gs: Email column index - ${emailColIndex}`);
+    // Validate startRow
+    if (startRow < 1 || !Number.isInteger(startRow)) {
+      throw new Error(`Invalid start row: ${startRow}. Must be a positive integer.`);
+    }
     
-    const bodyTemplate = draft.getMessage().getPlainBody();
-    
-    // Extract and map variables
-    const variablesInTemplate = extractVariables(bodyTemplate);
-    console.log(`Code.gs: Variables found in template - ${variablesInTemplate.join(', ')}`);
-    const variableColumnMap = mapVariablesToColumns(headers, variablesInTemplate);
+    if (startRow > emailContext.rows.length) {
+      throw new Error(`Start row (${startRow}) exceeds total number of data rows (${emailContext.rows.length}).`);
+    }
     
     let emailsSent = 0;
-
-    rows.forEach((row, index) => {
+    
+    // Start from startRow - 1 (since array is 0-indexed but user input is 1-indexed)
+    const rowsToProcess = emailContext.rows.slice(startRow - 1);
+    
+    rowsToProcess.forEach((row, index) => {
+      const actualRowNumber = startRow + index;
       try {
-        const email = row[emailColIndex - 1]; // Convert to 0-based index
-        if (!email || email.toString().trim() === '') {
+        const emailData = processEmailRow(row, emailContext);
+        
+        if (!emailData.to || emailData.to.trim() === '') {
           console.log(`Code.gs: Skipping row ${index + 2} - no email address`);
           return;
         }
         
-        const finalBody = replaceVariables(bodyTemplate, row, variableColumnMap, variablesInTemplate);
-        GmailApp.sendEmail(email, draftSubject, finalBody);
+        // Use the proper sendEmail format from Google's Mail Merge script
+        // See https://developers.google.com/apps-script/reference/gmail/gmail-app#sendEmail(String,String,String,Object)
+        GmailApp.sendEmail(emailData.to, emailData.subject, emailData.text, {
+          htmlBody: emailData.html,
+          attachments: emailData.attachments,
+          inlineImages: emailData.inlineImages
+        });
+        
         emailsSent++;
         
         Utilities.sleep(100);
@@ -432,12 +398,12 @@ function processAndSend(sheetId, draftSubject, emailColumn) {
       }
     });
 
-    console.log(`Code.gs: Emails sent - ${emailsSent}, totalRows ${rows.length}`);
+    console.log(`Code.gs: Emails sent - ${emailsSent}, totalRows ${emailContext.rows.length}`);
     
     return {
       success: true,
       emailsSent: emailsSent,
-      totalRows: rows.length
+      totalRows: emailContext.rows.length
     };
   } catch (error) {
     throw new Error(`Email sending failed: ${error.message}`);
@@ -445,43 +411,28 @@ function processAndSend(sheetId, draftSubject, emailColumn) {
 }
 
 /**
- * Send a test email using the first row of data to the signed-in user
+ * Send test email to current user
  */
-function sendTestEmail(sheetId, draftSubject) {
-  console.log("Code.gs: Send Test Email started");
+function sendTestEmail(sheetId, draftSubject, emailColumn) {
+  console.log("Code.gs: Sending test email");
   try {
-    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-    
-    if (rows.length === 0) {
-      throw new Error("No data rows found in spreadsheet");
-    }
-    
     const userEmail = Session.getActiveUser().getEmail();
-    console.log(`Code.gs: Test email will be sent to: ${userEmail}`);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
     
-    const draft = getDraftBySubject(draftSubject);
-    const bodyTemplate = draft.getMessage().getPlainBody();
+    // Use the first row for the test data
+    const emailData = processEmailRow(emailContext.rows[0], emailContext);
     
-    // Extract and map variables
-    const variablesInTemplate = extractVariables(bodyTemplate);
-    console.log(`Code.gs: Variables found in template - ${variablesInTemplate.join(', ')}`);
-    const variableColumnMap = mapVariablesToColumns(headers, variablesInTemplate);
+    // Send test email with [TEST] prefix
+    GmailApp.sendEmail(userEmail, "[TEST] " + emailData.subject, emailData.text, {
+      htmlBody: emailData.html,
+      attachments: emailData.attachments,
+      inlineImages: emailData.inlineImages
+    });
     
-    const firstRow = rows[0];
-    let finalBody = replaceVariables(bodyTemplate, firstRow, variableColumnMap, variablesInTemplate);
-    finalBody += '\n\n----\nThis is a test email.';
-    
-    GmailApp.sendEmail(userEmail, draftSubject, finalBody);
     console.log(`Code.gs: Test email sent to ${userEmail}`);
     
-    return {
-      success: true,
-      sentTo: userEmail
-    };
+    return { success: true, sentTo: userEmail };
   } catch (error) {
-    throw new Error(`Test email failed: ${error.message}`);
+    throw new Error(`Failed to send test email: ${error.message}`);
   }
 }

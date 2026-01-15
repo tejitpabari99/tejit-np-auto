@@ -35,10 +35,6 @@
     .toggle-icon.rotated {
       transform: rotate(180deg);
     }
-    .progress-container {
-      display: none;
-      margin-top: 15px;
-    }
     .select2-container {
       width: 100% !important;
     }
@@ -112,100 +108,16 @@
         <small class="text-muted mt-1 d-block">Use variables like {{First Name}}, {{Company}} in your draft - they'll be replaced with column values!</small>
       </div>
 
-      <!-- 3. Optional AI Personalization Section -->
-      <div class="ai-section">
-        <div class="ai-header" onclick="toggleAISection()">
-          <h5 class="mb-0">
-            <i class="bi bi-stars"></i> Optional - Personalize with AI
-          </h5>
-          <i class="bi bi-chevron-down toggle-icon" id="toggleIcon"></i>
-        </div>
-        
-        <div class="ai-content" id="aiContent">
-          <!-- Learn link for AI section -->
-          <a href="#" class="learn-link text-decoration-none d-block mb-3" id="aiLearnLink">
-            <i class="bi bi-lightbulb"></i> Learn how to use this section
-          </a>
-
-          <!-- API Key -->
-          <div class="mb-3">
-            <label class="form-label d-flex align-items-center">
-              Gemini API Key
-              <i class="bi bi-question-circle-fill help-icon" 
-                 data-bs-toggle="tooltip" 
-                 title="This key allows the AI to personalize your emails"></i>
-            </label>
-            <div class="input-group">
-              <input type="password" id="apiKey" class="form-control" placeholder="AIza...">
-              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-outline-primary">Get API Key 🔑</a>
-            </div>
-            <small class="text-muted mt-1 d-block">Your key is saved privately for next time.</small>
-          </div>
-
-          <!-- Column for input data -->
-          <div class="mb-3">
-            <label class="form-label d-flex align-items-center">
-              Column to Use for Personalization
-              <i class="bi bi-question-circle-fill help-icon" 
-                 data-bs-toggle="tooltip" 
-                 title="Select the column that contains data for AI personalization"></i>
-            </label>
-            <select id="inputColumn" class="form-select">
-              <option value="">-- Select a column --</option>
-            </select>
-          </div>
-
-          <!-- Column for output data -->
-          <div class="mb-3">
-            <label class="form-label d-flex align-items-center">
-              Column to Store Generated Text
-              <i class="bi bi-question-circle-fill help-icon" 
-                 data-bs-toggle="tooltip" 
-                 title="Select the column where AI will write personalized text"></i>
-            </label>
-            <select id="outputColumn" class="form-select">
-              <option value="">-- Select a column --</option>
-            </select>
-          </div>
-
-          <!-- Generate Button -->
-          <button onclick="generatePersonalization()" class="btn btn-success w-100 mb-3" id="generateBtn">
-            <i class="bi bi-magic"></i> Generate Personalized Text
-          </button>
-
-          <!-- Progress Bar -->
-          <div class="progress-container" id="progressContainer">
-            <div class="progress" style="height: 25px;">
-              <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                   role="progressbar" 
-                   id="progressBar"
-                   style="width: 0%">0%</div>
-            </div>
-            <div class="text-center mt-2" id="progressText">Generating personalized text...</div>
-          </div>
-
-          <!-- View Spreadsheet Link -->
-          <div id="spreadsheetLink" style="display: none;" class="alert alert-success mt-3">
-            <i class="bi bi-check-circle-fill"></i> Generation complete! 
-            <a href="#" id="viewSpreadsheet" target="_blank" class="alert-link">View your updated spreadsheet</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- Preview Email Section -->
-      <div class="ai-section">
-        <div class="ai-header" onclick="togglePreviewEmail()">
-          <h5 class="mb-0">
-            <i class="bi bi-envelope"></i> Preview Email
-          </h5>
-          <i class="bi bi-chevron-down toggle-icon" id="togglePreviewEmailIcon"></i>
-        </div>
-        
-        <div class="ai-content" id="previewEmailContent">
-          <div id="previewEmailBody" class="border rounded p-3 bg-white">
-            <p class="text-muted">Select a spreadsheet and draft to preview email</p>
-          </div>
-        </div>
+      <!-- 4. Start from Row (Optional) -->
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center">
+          4. Start from Row (Optional)
+          <i class="bi bi-question-circle-fill help-icon" 
+             data-bs-toggle="tooltip" 
+             title="Enter a row number to start sending from (1 = first data row). Leave blank to start from the beginning."></i>
+        </label>
+        <input type="number" id="startRow" class="form-control" min="1" placeholder="Leave blank to start from row 1">
+        <small class="text-muted mt-1 d-block">Enter a number to start from a specific row (e.g., 5 to start from the 5th data row)</small>
       </div>
 
       <!-- 4. Run Buttons -->
@@ -242,11 +154,6 @@
       // Initialize Bootstrap tooltips
       var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
       tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) });
-
-      // Fetch saved key
-      google.script.run.withSuccessHandler(key => {
-        if(key) document.getElementById('apiKey').value = key;
-      }).getSavedKey();
 
       // Load spreadsheets with Select2
       console.log("Loading Spreadsheet");
@@ -307,31 +214,6 @@
       icon.classList.toggle('rotated');
     }
 
-    // Toggle Preview Email section
-    function togglePreviewEmail() {
-      const content = document.getElementById('previewEmailContent');
-      const icon = document.getElementById('togglePreviewEmailIcon');
-      
-      content.classList.toggle('show');
-      icon.classList.toggle('rotated');
-      
-      // Load preview email when opened
-      if (content.classList.contains('show')) {
-        loadPreviewEmail();
-      }
-    }
-
-    // Toggle AI section
-    console.log("Toggle AI Section function");
-    function toggleAISection() {
-      const content = document.getElementById('aiContent');
-      const icon = document.getElementById('toggleIcon');
-      
-      content.classList.toggle('show');
-      icon.classList.toggle('rotated');
-      console.log("AI Section toggled");
-    }
-
     // Load preview data when sheet is selected
     function loadPreviewData(sheetId) {
       console.log("Loading preview data for sheet:", sheetId);
@@ -358,8 +240,6 @@
           
           // Clear column dropdowns when there's an error
           document.getElementById('emailColumn').innerHTML = '<option value="">-- Select a column --</option>';
-          document.getElementById('inputColumn').innerHTML = '<option value="">-- Select a column --</option>';
-          document.getElementById('outputColumn').innerHTML = '<option value="">-- Select a column --</option>';
         })
         .getPreviewData(sheetId);
     }
@@ -396,13 +276,9 @@
     // Populate column dropdowns with header names
     function populateColumnDropdowns(headers) {
       const emailSelect = document.getElementById('emailColumn');
-      const inputSelect = document.getElementById('inputColumn');
-      const outputSelect = document.getElementById('outputColumn');
       
       // Clear existing options except the first placeholder
       emailSelect.innerHTML = '<option value="">-- Select a column --</option>';
-      inputSelect.innerHTML = '<option value="">-- Select a column --</option>';
-      outputSelect.innerHTML = '<option value="">-- Select a column --</option>';
       
       // Add column options
       headers.forEach((header, index) => {
@@ -410,8 +286,6 @@
         const optionValue = header || `Column${index + 1}`;
         
         emailSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
-        inputSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
-        outputSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
       });
     }
 
@@ -422,123 +296,6 @@
       
       // Clear column dropdowns
       document.getElementById('emailColumn').innerHTML = '<option value="">-- Select a column --</option>';
-      document.getElementById('inputColumn').innerHTML = '<option value="">-- Select a column --</option>';
-      document.getElementById('outputColumn').innerHTML = '<option value="">-- Select a column --</option>';
-      
-      // Clear email preview
-      document.getElementById('previewEmailBody').innerHTML = '<p class="text-muted">Select a spreadsheet and draft to preview email</p>';
-    }
-
-    // Load and display preview email
-    function loadPreviewEmail() {
-      const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
-      const draftSubject = document.getElementById('draftSelect').value;
-      const emailColumn = document.getElementById('emailColumn').value;
-
-      if (!sheetId || !draftSubject || !emailColumn) {
-        alert('Please select a spreadsheet, draft, and specify the email column.');
-        return;
-      }
-      
-      if (!sheetId || !draftSubject) {
-        document.getElementById('previewEmailBody').innerHTML = '<p class="text-muted">Please select both a spreadsheet and a draft to preview</p>';
-        return;
-      }
-      
-      if (!previewData || !previewData.rows || previewData.rows.length === 0) {
-        document.getElementById('previewEmailBody').innerHTML = '<p class="text-muted">No data available. Please select a spreadsheet first.</p>';
-        return;
-      }
-      
-      document.getElementById('previewEmailBody').innerHTML = '<p class="text-muted">Loading preview...</p>';
-      
-      google.script.run
-        .withSuccessHandler(function(result) {
-          const emailHtml = `
-            <div class="mb-2"><strong>Subject:</strong> ${result.subject}</div>
-            <div class="mb-2"><strong>To:</strong> ${result.to}</div>
-            <hr>
-            <div style="white-space: pre-wrap; font-family: monospace;">${result.body}</div>
-          `;
-          document.getElementById('previewEmailBody').innerHTML = emailHtml;
-        })
-        .withFailureHandler(function(err) {
-          document.getElementById('previewEmailBody').innerHTML = '<p class="text-danger">Error loading preview: ' + err.message + '</p>';
-        })
-        .getEmailPreview(sheetId, draftSubject, emailColumn);
-    }
-
-    // Generate personalized text
-    console.log("Generate Personalization function");
-    function generatePersonalization() {
-      console.log("Starting Personalization");
-      const btn = document.getElementById('generateBtn');
-      const apiKey = document.getElementById('apiKey').value;
-      const inputColumn = document.getElementById('inputColumn').value;
-      const outputColumn = document.getElementById('outputColumn').value;
-      const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
-
-      if (!apiKey || !inputColumn || !outputColumn || !sheetId) {
-        alert('Please fill in all fields: API Key, Input Column, Output Column, and select a spreadsheet.');
-        return;
-      }
-
-      // Save API key
-      google.script.run.saveKey(apiKey);
-
-      // Disable button and show progress
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
-      document.getElementById('progressContainer').style.display = 'block';
-      document.getElementById('spreadsheetLink').style.display = 'none';
-
-      // Call backend to generate
-      console.log("Generating Personalization...");
-      google.script.run
-        .withSuccessHandler(handleGenerationSuccess)
-        .withFailureHandler(handleGenerationFailure)
-        .generateAIPersonalization(sheetId, inputColumn, outputColumn, apiKey);
-        console.log("AI Section toggled");
-    }
-
-    
-    console.log("Handle Generation Success function");
-    function handleGenerationSuccess(result) {
-      const btn = document.getElementById('generateBtn');
-      const progressBar = document.getElementById('progressBar');
-      const progressText = document.getElementById('progressText');
-      
-      // Animate to 100%
-      progressBar.style.width = '100%';
-      progressBar.textContent = '100%';
-      progressText.textContent = 'Generation complete!';
-      
-      // Show spreadsheet link
-      setTimeout(() => {
-        document.getElementById('progressContainer').style.display = 'none';
-        const linkDiv = document.getElementById('spreadsheetLink');
-        const viewLink = document.getElementById('viewSpreadsheet');
-        
-        var sheetIdToUse = currentSheetId || document.getElementById('sheetSelect').value
-        viewLink.href = "https://docs.google.com/spreadsheets/d/" + sheetIdToUse;
-        linkDiv.style.display = 'block';
-        
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-magic"></i> Generate Personalized Text';
-      }, 1000);
-      console.log(`Sheet ID used: ${sheetIdToUse}`);
-    }
-    
-    
-    console.log("Handle Generation Failure function");
-    function handleGenerationFailure(error) {
-      const btn = document.getElementById('generateBtn');
-      document.getElementById('progressContainer').style.display = 'none';
-      
-      alert('Error generating personalization: ' + error.message);
-      
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-magic"></i> Generate Personalized Text';
     }
     
     // Send test email
@@ -548,9 +305,10 @@
       const testBtn = document.getElementById('testBtn');
       const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
       const draftSubject = document.getElementById('draftSelect').value;
+      const emailColumn = document.getElementById('emailColumn').value;
 
-      if (!sheetId || !draftSubject) {
-        alert('Please select a spreadsheet and draft.');
+      if (!sheetId || !draftSubject || !emailColumn) {
+        alert('Please select a spreadsheet, draft, and email column.');
         return;
       }
 
@@ -566,7 +324,7 @@
         document.getElementById('status').innerHTML = '<span class="text-danger">❌ Error: ' + err.message + '</span>';
         testBtn.disabled = false;
         testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
-      }).sendTestEmail(sheetId, draftSubject);
+      }).sendTestEmail(sheetId, draftSubject, emailColumn);
       console.log("Test email request sent...");
     }
     
@@ -578,9 +336,23 @@
       const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
       const draftSubject = document.getElementById('draftSelect').value;
       const emailColumn = document.getElementById('emailColumn').value;
+      const startRowInput = document.getElementById('startRow').value;
+      const startRow = startRowInput ? parseInt(startRowInput) : 1;
 
       if (!sheetId || !draftSubject || !emailColumn) {
         alert('Please select a spreadsheet, draft, and specify the email column.');
+        return;
+      }
+
+      // Validate startRow is a positive integer
+      if (startRow < 1 || !Number.isInteger(startRow)) {
+        alert('Start row must be a positive integer (1 or greater).');
+        return;
+      }
+
+      // Validate startRow is within data range
+      if (previewData && previewData.rows && startRow > previewData.rows.length) {
+        alert(`Start row (${startRow}) exceeds total number of data rows (${previewData.rows.length}). Please enter a valid row number.`);
         return;
       }
 
@@ -596,7 +368,7 @@
         document.getElementById('status').innerHTML = '<span class="text-danger">❌ Error: ' + err.message + '</span>';
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
-      }).processAndSend(sheetId, draftSubject, emailColumn);
+      }).processAndSend(sheetId, draftSubject, emailColumn, startRow);
       console.log("Emails sent...");
     }
   </script>
