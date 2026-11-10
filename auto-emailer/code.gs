@@ -39,6 +39,36 @@ function getOrCreateUid_(props) {
 }
 
 /**
+ * Returns the saved organization name for pre-filling the UI.
+ */
+function getUsageSettings() {
+  const org = PropertiesService.getUserProperties().getProperty('usage_org');
+  return { org: org || '' };
+}
+
+/**
+ * Validates and saves the organization name (per Google user). The server
+ * re-normalizes: control chars stripped, whitespace collapsed, 1-100 chars, no "@".
+ */
+function saveOrganization(org) {
+  const clean = String(org === null || org === undefined ? '' : org)
+    .replace(/\s+/g, ' ')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .trim();
+  if (!clean) throw new Error('Please enter your organization name.');
+  if (clean.indexOf('@') !== -1) throw new Error("Please enter your organization's name, not an email address.");
+  if (clean.length > 100) throw new Error('Organization name must be 100 characters or fewer.');
+  PropertiesService.getUserProperties().setProperty('usage_org', clean);
+  return { org: clean };
+}
+
+function requireOrganization_() {
+  if (!PropertiesService.getUserProperties().getProperty('usage_org')) {
+    throw new Error('Organization name is required');
+  }
+}
+
+/**
  * Sends one anonymous usage ping. PII firewall: `fields` is an allowlist,
  * `extra` only accepts x_ keys with numeric/boolean/safe-token values.
  * Never throws and never logs the URL.
@@ -863,6 +893,7 @@ function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1, sheetN
  * Send test email to current user
  */
 function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
+  requireOrganization_();
   console.log("Code.gs: Sending test email");
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
 
@@ -904,6 +935,7 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
  * This allows for real-time progress updates in the UI
  */
 function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitEmails = null, storeResults = true, conditionalColumn = '', sheetName) {
+  requireOrganization_();
   console.log("Code.gs: ==================== BATCH START ====================");
   console.log("Code.gs: Send Email Batch started");
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);

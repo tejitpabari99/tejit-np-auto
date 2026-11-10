@@ -12,7 +12,7 @@ function fixture(extra = {}) {
   const sheet = makeSheet('Donors', [['Email', 'Donor Name', 'Sent'], ['alice.secret@x.org', 'Alice', ''], ['bob.secret@x.org', 'Bob', 'false']]);
   const ss = makeSpreadsheet([sheet]);
   ss.getName = () => 'Private Donor Spreadsheet';
-  return loadCodeGs({ spreadsheets: { S1: ss }, drafts: [makeDraft(SUBJECT, '<p>Hi {{Donor Name}}</p>')], userEmail: USER, ...extra });
+  return loadCodeGs({ spreadsheets: { S1: ss }, drafts: [makeDraft(SUBJECT, '<p>Hi {{Donor Name}}</p>')], userEmail: USER, props: { usage_org: 'Test Org' }, ...extra });
 }
 
 test('getOAuthToken is removed', () => {

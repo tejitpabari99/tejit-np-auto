@@ -169,3 +169,67 @@ test('classifyReason_ maps messages in order, never returns the message', () => 
   assert.strictEqual(c('permission invalid'), 'no_access');
   assert.strictEqual(c('not found invalid'), 'not_found');
 });
+
+// ---- Task 3: org + uid persistence, required guards ----
+const { makeSheet, makeSpreadsheet, makeDraft } = require('./helpers');
+
+function sendFixture(opts = {}) {
+  const sheet = makeSheet('Donors', [['Email', 'Name'], ['alice.secret@x.org', 'Alice']]);
+  return loadCodeGs({ spreadsheets: { S1: makeSpreadsheet([sheet]) }, drafts: [makeDraft('Hello', '<p>Hi {{Name}}</p>')], ...opts });
+}
+
+test('saveOrganization trims and collapses whitespace, stores, getUsageSettings round-trips', () => {
+  const { ctx, props } = loadCodeGs();
+  assert.strictEqual(ctx.saveOrganization('  Red   Cross ').org, 'Red Cross');
+  assert.strictEqual(props.usage_org, 'Red Cross');
+  assert.strictEqual(ctx.getUsageSettings().org, 'Red Cross');
+});
+
+test('getUsageSettings returns empty org when unset', () => {
+  const { ctx } = loadCodeGs();
+  assert.strictEqual(ctx.getUsageSettings().org, '');
+});
+
+test('saveOrganization strips control chars', () => {
+  const { ctx, props } = loadCodeGs();
+  ctx.saveOrganization('Red\u0000 Cr\u0007oss\n');
+  assert.strictEqual(props.usage_org, 'Red Cross');
+});
+
+test('saveOrganization rejects empty, whitespace-only, @, and >100 chars; keeps old value', () => {
+  const { ctx, props } = loadCodeGs({ props: { usage_org: 'Old Org' } });
+  for (const bad of ['', '   ', 'a@b.org', 'x'.repeat(101), null, undefined, '\u0000\u0001']) {
+    assert.throws(() => ctx.saveOrganization(bad), /organization/i, String(bad));
+  }
+  assert.strictEqual(props.usage_org, 'Old Org');
+  assert.strictEqual(ctx.saveOrganization('x'.repeat(100)).org.length, 100);
+});
+
+test('uid is created once (u_ + 8 hex), stable across calls, regenerated if malformed', () => {
+  const { ctx, props } = loadCodeGs();
+  const a = ctx.getOrCreateUid_(ctx.PropertiesService.getUserProperties());
+  const b = ctx.getOrCreateUid_(ctx.PropertiesService.getUserProperties());
+  assert.match(a, /^u_[0-9a-f]{8}$/);
+  assert.strictEqual(a, b);
+  assert.strictEqual(props.usage_uid, a);
+  props.usage_uid = 'garbage';
+  const c = ctx.getOrCreateUid_(ctx.PropertiesService.getUserProperties());
+  assert.match(c, /^u_[0-9a-f]{8}$/);
+  assert.notStrictEqual(c, 'garbage');
+  assert.strictEqual(props.usage_uid, c);
+});
+
+test('sendTestEmail and sendEmailBatch throw "Organization name is required" when org unset; nothing sent', () => {
+  const { ctx, sent } = sendFixture();
+  assert.throws(() => ctx.sendTestEmail('S1', 'Hello', 'Email', 'Donors'), /^Error: Organization name is required$/);
+  assert.throws(() => ctx.sendEmailBatch('S1', 'Hello', 'Email', 1, null, true, '', 'Donors'), /^Error: Organization name is required$/);
+  assert.strictEqual(sent.length, 0);
+});
+
+test('send fns work when org is set; signatures unchanged', () => {
+  const { ctx, sent } = sendFixture({ props: { usage_org: 'Red Cross' } });
+  assert.strictEqual(ctx.sendTestEmail.length, 4);
+  assert.strictEqual(ctx.sendTestEmail('S1', 'Hello', 'Email', 'Donors').success, true);
+  assert.strictEqual(sent.length, 1);
+  assert.ok(ctx.sendEmailBatch('S1', 'Hello', 'Email', 1, null, true, '', 'Donors').totalRows >= 1);
+});
