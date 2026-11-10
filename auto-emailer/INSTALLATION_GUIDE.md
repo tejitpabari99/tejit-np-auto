@@ -1,5 +1,7 @@
 # NGO Auto Emailer — Installation and How-To Guide
 
+_Updated November 2026: choose a tab, safer dashboard._
+
 **Open the tool:** <https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec>
 
 There is nothing to download or install. The tool is a web page that runs inside your own Google account. This guide walks you through setting it up the first time and sending your first batch of emails.
@@ -44,7 +46,7 @@ If you have more people than that, send in batches over several days. See [Advan
 3. Keep column names short and simple. Use only letters, numbers and spaces. Avoid symbols like `#`, `{`, `}`, `/`.
 4. Make sure you have a column with **email addresses**.
 5. Put one person per row, starting from row 2.
-6. Keep your list on the **first tab** of the spreadsheet. The tool only reads the first tab.
+6. Your list can be on **any tab** of the spreadsheet. You pick the tab in the dashboard (see Step 5). If you do not pick one, the tool uses the first tab.
 
 > **Important:** The file must be a real **Google Sheet**, not an uploaded Excel (`.xlsx`) or `.csv` file.
 > If your file name shows a green `.XLSX` badge, open it and click **File → Save as Google Sheets**. Use the new copy.
@@ -154,7 +156,6 @@ _(Picture coming soon: the Continue button at the bottom of the permission scree
 | View your email messages and settings (read only) | This lets the tool read **all** your email. The tool only reads your drafts, to find your template. |
 | Send email on your behalf | To send the emails, from your address. |
 | See, edit, create and delete your spreadsheets | To read your list and (if you choose) write the "Email Sent" results back into it. |
-| Connect to an external service | The tool asks for this, but does not currently use it. |
 | See your primary Google Account email address | To send the **test email** to you. |
 
 ---
@@ -165,10 +166,16 @@ After permission, you see the **NGO Mailer** dashboard.
 
 ![The NGO Mailer dashboard](docs/images/dashboard-overview.png)
 
+> The picture above is from an earlier version and does not show the new **Select Tab** list yet.
+
+<!-- SCREENSHOT NEEDED: dashboard-with-tab -->
+_(Picture coming soon: the dashboard showing the new Select tab list)_
+
 1. **Select Your Spreadsheet** — click the box and start typing your sheet's name to search for it.
-2. **Select Gmail Draft** — pick the draft you wrote in Step 2 (shown by its subject).
-3. **Column to Use for Email** — pick the column that holds the email addresses (for example `Email`). This list fills in after you pick a spreadsheet.
-4. **Preview Data** — click to open it. It shows the first 5 rows of your sheet so you can check you picked the right file.
+2. **Select Tab** — pick the tab (sheet) inside that spreadsheet that has your list of people. It fills in after you pick a spreadsheet, and the first tab is chosen for you. If your list is on a different tab, change it here.
+3. **Select Gmail Draft** — pick the draft you wrote in Step 2 (shown by its subject).
+4. **Column to Use for Email** — pick the column that holds the email addresses (for example `Email`). This list fills in after you pick a tab.
+5. **Preview Data** — click to open it. It shows the first 5 rows of the tab you picked so you can check you chose the right list.
 
 <!-- SCREENSHOT NEEDED: preview-data-expanded -->
 _(Picture coming soon: the Preview Data section opened, showing sheet rows.)_
@@ -197,7 +204,7 @@ _(Picture coming soon (optional): the test email as it arrives in your inbox.)_
 4. **Keep this browser tab open** until it says **Complete!** The tab sends the emails one by one. If you close the tab or your computer goes to sleep, sending stops. (You can safely pick up where you left off — see [How to continue after stopping](#how-to-continue-after-stopping).)
 5. When it says **Complete!** it shows how many were sent and how many failed.
 
-If **Store results in spreadsheet** is ticked (it is, by default), your sheet gets two new columns showing what happened for each person:
+If **Store results in spreadsheet** is ticked (it is, by default), the tab you picked gets two new columns showing what happened for each person:
 
 <!-- SCREENSHOT NEEDED: sheet-result-columns -->
 _(Picture coming soon: the spreadsheet with the new "Email Sent" and "Email Error" columns.)_
@@ -241,6 +248,7 @@ After adding or changing columns, **refresh the tool's page** and pick your spre
 | My spreadsheet is not in the list. | The list shows up to 50 sheets, and the search box only searches those 50. If yours is missing, make a copy of it (**File → Make a copy**) or remove old sheets you do not need, then refresh the page. Also check it is a real Google Sheet, not an `.xlsx` file (see Step 1). |
 | My draft is not in the list, or I get "Draft … not found". | Make sure it is still in Gmail's **Drafts** folder (not sent or deleted). Refresh the tool's page. Make sure no other draft has the same subject. |
 | A `{{...}}` came out blank in the email. | The name inside the brackets does not match a column name. Check spelling and spaces against row 1 of your sheet, and remove any spaces just inside the brackets. Also check that cell is not empty for that person. If it is in the **subject**, the same `{{...}}` must also appear in the email body. |
+| "Tab ... not found in this spreadsheet". | The tab was renamed or deleted after you picked it. Refresh the page, pick the spreadsheet again, then pick the tab. |
 | "No email address" in the error column. | That person's email cell is empty. Fill it in, then continue (see above). |
 | "Invalid conditional column value". | The Conditional Column must contain only TRUE, FALSE or nothing. Fix the odd cell, or pick a different column. |
 | Emails stopped partway / quota or limit error. | You probably reached Google's daily limit (about 100 personal, 1,500 Workspace). Wait 24 hours, then continue (see above). |
@@ -254,6 +262,6 @@ After adding or changing columns, **refresh the tool's page** and pick your spre
 
 - The tool runs **as you, from your own Google account**. It reads your spreadsheet and your Gmail draft, sends the emails from your Gmail, and (if you choose) writes results back into your sheet.
 - The current code is public in this repo, and it does **not** send your data to the developer or any other company.
-- Google keeps basic **run logs** in the developer's Google project. These can include your email address, your draft's subject, your sheet name and column names, and a recipient's email address.
+- Google keeps basic **run logs** in the developer's Google project. Since the November 2026 update, the tool's own log lines no longer include your email address, your draft's subject, your sheet name or your recipients' email addresses. They only record things like counts, row numbers and error messages. Error messages can contain text that Google itself provides (for example a rejected address), so logs are not guaranteed to be free of personal details.
 - The developer can change the tool's code later. The code is public here, so anyone can check it.
 - You can remove its access at any time at <https://myaccount.google.com/permissions> (look for **NGO Mailer**).
