@@ -4,11 +4,9 @@
 function doGet(e) {
   try {
     console.log("Code.gs: DoGet started");
-    console.log(`Code.gs: User accessing app - ${Session.getActiveUser().getEmail()}`);
     return HtmlService.createTemplateFromFile('index')
         .evaluate()
         .setTitle('NGO Mailer Dashboard')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
         .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   } catch (error) {
     console.error(`Code.gs: CRITICAL ERROR in doGet - ${error.message}`);
@@ -17,10 +15,22 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(`
       <h1>Error Loading Application</h1>
       <p>We encountered an error while loading the application. Please try refreshing the page.</p>
-      <p><strong>Error:</strong> ${error.message}</p>
+      <p><strong>Error:</strong> ${escapeHtml_(error.message)}</p>
       <p>If this problem persists, please contact support with this error message.</p>
     `);
   }
+}
+
+/**
+ * Escapes text for safe insertion into HTML.
+ */
+function escapeHtml_(str) {
+  return String(str === null || str === undefined ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -29,7 +39,6 @@ function doGet(e) {
 function getRecentSheets() {
   try {
     console.log("Code.gs: Fetch recent sheets started");
-    console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
 
     const files = DriveApp.searchFiles('mimeType = "application/vnd.google-apps.spreadsheet" and trashed = false');
     const sheets = [];
@@ -68,7 +77,6 @@ function getRecentSheets() {
 function getGmailDrafts() {
   try {
     console.log("Code.gs: Fetching Gmail drafts started");
-    console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
 
     const drafts = GmailApp.getDrafts();
     console.log(`Code.gs: Total drafts found - ${drafts.length}`);
@@ -98,22 +106,6 @@ function getGmailDrafts() {
     console.error(`Code.gs: ERROR in getGmailDrafts - ${error.message}`);
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to fetch Gmail drafts: ${error.message}. Please ensure you have granted Gmail permissions.`);
-  }
-}
-
-/**
- * Gets OAuth token for Google Picker
- */
-function getOAuthToken() {
-  try {
-    console.log("Code.gs: Getting OAuth token");
-    const token = ScriptApp.getOAuthToken();
-    console.log("Code.gs: OAuth token retrieved successfully");
-    return token;
-  } catch (error) {
-    console.error(`Code.gs: ERROR in getOAuthToken - ${error.message}`);
-    console.error(`Code.gs: Stack trace - ${error.stack}`);
-    throw new Error(`Failed to get OAuth token: ${error.message}. Please re-authorize the application.`);
   }
 }
 
@@ -162,7 +154,6 @@ function getTargetSheet_(spreadsheet, sheetName) {
  */
 function getPreviewData(sheetId, sheetName) {
   console.log(`Code.gs: Getting preview data for sheet ${sheetId}`);
-  console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
 
   try {
     if (!sheetId || sheetId.trim() === '') {
@@ -172,10 +163,10 @@ function getPreviewData(sheetId, sheetName) {
 
     console.log(`Code.gs: Opening spreadsheet with ID: ${sheetId}`);
     const spreadsheet = SpreadsheetApp.openById(sheetId);
-    console.log(`Code.gs: Spreadsheet opened: ${spreadsheet.getName()}`);
+    console.log("Code.gs: Spreadsheet opened");
 
     const sheet = getTargetSheet_(spreadsheet, sheetName);
-    console.log(`Code.gs: Using sheet: ${sheet.getName()}`);
+    console.log("Code.gs: Tab selected");
 
     const data = sheet.getDataRange().getDisplayValues();
     console.log(`Code.gs: Total rows in sheet: ${data.length}`);
@@ -195,7 +186,6 @@ function getPreviewData(sheetId, sheetName) {
     const rows = data.slice(1, Math.min(6, data.length));
 
     console.log(`Code.gs: Preview data fetched successfully - ${rows.length} rows, ${headers.length} columns`);
-    console.log(`Code.gs: Headers: ${headers.join(', ')}`);
 
     return {
       headers: headers,
@@ -302,7 +292,7 @@ function mapVariablesToColumns(headers, variables) {
  * @return {object} containing the subject, plain and html message body and attachments
  */
 function getGmailTemplateFromDrafts_(subject_line) {
-  console.log(`Code.gs: Getting Gmail template for subject: ${subject_line}`);
+  console.log("Code.gs: Getting Gmail template from draft");
 
   try {
     if (!subject_line || subject_line.trim() === '') {
@@ -326,18 +316,11 @@ function getGmailTemplateFromDrafts_(subject_line) {
     })[0];
 
     if (!draft) {
-      console.error(`Code.gs: Draft with subject "${subject_line}" not found`);
-      console.log(`Code.gs: Available draft subjects: ${drafts.map(d => {
-        try {
-          return d.getMessage().getSubject();
-        } catch (e) {
-          return '(error)';
-        }
-      }).join(', ')}`);
+      console.error("Code.gs: Draft with the requested subject not found");
       throw new Error(`Draft with subject "${subject_line}" not found`);
     }
 
-    console.log(`Code.gs: Draft found: ${subject_line}`);
+    console.log("Code.gs: Draft found");
 
     // get the message object
     const msg = draft.getMessage();
@@ -394,7 +377,7 @@ function getGmailTemplateFromDrafts_(subject_line) {
  */
 function prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName) {
   console.log(`Code.gs: Preparing email context`);
-  console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
+  console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
 
   try {
     // Validate inputs
@@ -538,8 +521,7 @@ function processEmailRow(row, emailContext) {
  */
 function getEmailPreview(sheetId, draftSubject, emailColumn, sheetName) {
   console.log(`Code.gs: Getting email preview`);
-  console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
-  console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
+  console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
 
   try {
     console.log("Code.gs: Preparing email context");
@@ -552,7 +534,7 @@ function getEmailPreview(sheetId, draftSubject, emailColumn, sheetName) {
     console.log("Code.gs: Processing first row for preview");
     const emailData = processEmailRow(emailContext.rows[0], emailContext);
 
-    console.log(`Code.gs: Email preview generated successfully for: ${emailData.to}`);
+    console.log("Code.gs: Email preview generated successfully");
 
     return {
       subject: emailData.subject,
@@ -754,11 +736,10 @@ function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1, sheetN
  */
 function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
   console.log("Code.gs: Sending test email");
-  console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
+  console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
 
   try {
     const userEmail = Session.getActiveUser().getEmail();
-    console.log(`Code.gs: User email: ${userEmail}`);
 
     if (!userEmail || userEmail.trim() === '') {
       throw new Error("Unable to determine user email address");
@@ -771,8 +752,7 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
     console.log("Code.gs: Processing first row for test email");
     const emailData = processEmailRow(emailContext.rows[0], emailContext);
 
-    console.log(`Code.gs: Sending test email to ${userEmail}`);
-    console.log(`Code.gs: Test email subject: [TEST] ${emailData.subject}`);
+    console.log("Code.gs: Sending test email to the current user");
 
     // Send test email with [TEST] prefix
     GmailApp.sendEmail(userEmail, "[TEST] " + emailData.subject, emailData.text, {
@@ -781,7 +761,7 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
       inlineImages: emailData.inlineImages
     });
 
-    console.log(`Code.gs: Test email sent successfully to ${userEmail}`);
+    console.log("Code.gs: Test email sent successfully");
 
     return { success: true, sentTo: userEmail };
   } catch (error) {
@@ -798,9 +778,8 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
 function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitEmails = null, storeResults = true, conditionalColumn = '', sheetName) {
   console.log("Code.gs: ==================== BATCH START ====================");
   console.log("Code.gs: Send Email Batch started");
-  console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
-  console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
-  console.log(`Code.gs: Settings - startRow: ${startRow}, limitEmails: ${limitEmails}, storeResults: ${storeResults}, conditionalColumn: ${conditionalColumn}`);
+  console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
+  console.log(`Code.gs: Settings - startRow: ${startRow}, limitEmails: ${limitEmails}, storeResults: ${storeResults}`);
 
   try {
     const spreadsheet = SpreadsheetApp.openById(sheetId);
@@ -835,7 +814,7 @@ function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitE
 
     // Get conditional column index if specified
     if (conditionalColumn && conditionalColumn.trim() !== '') {
-      console.log(`Code.gs: Getting conditional column index for: ${conditionalColumn}`);
+      console.log("Code.gs: Getting conditional column index");
       try {
         const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
         conditionalColIndex = findColumnIndex(headers, conditionalColumn);
@@ -1005,8 +984,6 @@ function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIn
 
     const emailData = processEmailRow(row, emailContext);
 
-    console.log(`Code.gs: Email recipient: ${emailData.to}`);
-
     if (!emailData.to || emailData.to.trim() === '') {
       console.warn(`Code.gs: No email address found in row ${rowIndex}`);
       if (storeResults && sentColIndex && errorColIndex) {
@@ -1022,8 +999,7 @@ function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIn
     }
 
     // Send the email
-    console.log(`Code.gs: Sending email to ${emailData.to}`);
-    console.log(`Code.gs: Email subject: ${emailData.subject}`);
+    console.log(`Code.gs: Sending email for row ${rowIndex}`);
 
     try {
       GmailApp.sendEmail(emailData.to, emailData.subject, emailData.text, {
@@ -1032,7 +1008,7 @@ function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIn
         inlineImages: emailData.inlineImages
       });
 
-      console.log(`Code.gs: Email sent successfully to ${emailData.to} (row ${rowIndex})`);
+      console.log(`Code.gs: Email sent successfully (row ${rowIndex})`);
     } catch (sendError) {
       console.error(`Code.gs: Gmail send error for row ${rowIndex} - ${sendError.message}`);
       throw sendError; // Re-throw to be caught by outer catch

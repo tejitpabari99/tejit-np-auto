@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" integrity="sha384-l4UPAMHGzl7zwogLW4nOwaU2XTk6oiM1jhCRQstZEndoIiA2I5bg6fST3wzBSRBD" crossorigin="anonymous">
   <style>
     body { background: #f4f7f6; padding: 40px; font-family: 'Segoe UI', sans-serif; }
     .card { border: none; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
@@ -38,8 +38,8 @@
       width: 100% !important;
     }
   </style>
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" integrity="sha384-OXVF05DQEe311p6ohU11NwlnX08FzMCsyoXzGOaL+83dKAb3qS17yZJxESl8YrJQ" crossorigin="anonymous" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" integrity="sha384-IrMr0LFnIMa9H6HhC5VVqVuWNEIwspnRLKQc0SUyPj4Cy4s02DiWDZEoJOo5WNK6" crossorigin="anonymous" rel="stylesheet" />
 </head>
 <body>
   <div class="container mt-5">
@@ -204,10 +204,10 @@
     </div>
   </div>
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js" integrity="sha384-fbbOQedDUMZZ5KreZpsbe1LCZPVmfTnH7ois6mU1QK+m14rQ1l2bGBq41eYeM/fS" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" integrity="sha384-d3UHjPdzJkZuk5H3qKYMLRyWLAQBJbby2yr2Q58hXXtAGF8RSNO9jpLDlKKPv5v3" crossorigin="anonymous"></script>
 
   <script>
     let currentSheetId = '';
@@ -242,7 +242,7 @@
 
           let select = document.getElementById('sheetSelect');
           select.innerHTML = '<option value="">-- Select a spreadsheet --</option>' +
-            sheets.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            buildSheetOptionsHtml(sheets);
 
           // Initialize Select2 for searchable dropdown
           $('#sheetSelect').select2({
@@ -290,7 +290,7 @@
 
           let select = document.getElementById('draftSelect');
           select.innerHTML = '<option value="">-- Select a draft --</option>' +
-            drafts.map(d => `<option value="${d.subject}">${d.subject}</option>`).join('');
+            buildDraftOptionsHtml(drafts);
 
           // Initialize Select2 for searchable dropdown
           $('#draftSelect').select2({
@@ -331,9 +331,56 @@
       icon.classList.toggle('rotated');
     }
 
+    // Escape text so it is shown as plain text (never run as HTML), also safe inside attributes
+    function escapeHtml(str) {
+      return String(str === null || str === undefined ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     // Build <option> list for the tab dropdown
     function buildTabOptionsHtml(tabs) {
-      return tabs.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+      return tabs.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+    }
+
+    // Build <option> list for the spreadsheet dropdown
+    function buildSheetOptionsHtml(sheets) {
+      return sheets.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('');
+    }
+
+    // Build <option> list for the draft dropdown
+    function buildDraftOptionsHtml(drafts) {
+      return drafts.map(d => `<option value="${escapeHtml(d.subject)}">${escapeHtml(d.subject)}</option>`).join('');
+    }
+
+    // Build <option> list for the column dropdowns
+    function buildColumnOptionsHtml(headers) {
+      return headers.map((header, index) => {
+        const displayName = header || `Column ${index + 1}`;
+        const optionValue = header || `Column${index + 1}`;
+        return `<option value="${escapeHtml(optionValue)}">${escapeHtml(displayName)}</option>`;
+      }).join('');
+    }
+
+    // Build the preview table
+    function buildPreviewTableHtml(data) {
+      let tableHtml = '<table class="table table-striped table-bordered table-sm"><thead class="table-primary"><tr>';
+      data.headers.forEach(header => {
+        tableHtml += `<th>${escapeHtml(header || '(empty)')}</th>`;
+      });
+      tableHtml += '</tr></thead><tbody>';
+      data.rows.forEach(row => {
+        tableHtml += '<tr>';
+        data.headers.forEach((_, index) => {
+          tableHtml += `<td>${escapeHtml(row[index] || '')}</td>`;
+        });
+        tableHtml += '</tr>';
+      });
+      tableHtml += '</tbody></table>';
+      return tableHtml;
     }
 
     // Load the tabs of the chosen spreadsheet, select the first one, then load its preview
@@ -356,7 +403,7 @@
           console.error(`Frontend: ERROR loading tabs - ${err.message}`);
           tabSelect.innerHTML = '<option value="">Error loading tabs</option>';
           document.getElementById('previewDataTable').innerHTML =
-            `<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error loading tabs:</strong> ${err.message}</p>`;
+            `<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error loading tabs:</strong> ${escapeHtml(err.message)}</p>`;
         })
         .getSheetTabs(sheetId);
     }
@@ -415,7 +462,7 @@
 
           previewData = null;
           document.getElementById('previewDataTable').innerHTML =
-            `<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error loading preview:</strong> ${err.message}</p>
+            `<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error loading preview:</strong> ${escapeHtml(err.message)}</p>
              <p class="text-muted small">Please check your spreadsheet permissions and data, then try selecting it again.</p>`;
 
           // Clear column dropdowns when there's an error
@@ -431,25 +478,7 @@
         return;
       }
 
-      let tableHtml = '<table class="table table-striped table-bordered table-sm"><thead class="table-primary"><tr>';
-
-      // Headers
-      data.headers.forEach(header => {
-        tableHtml += `<th>${header || '(empty)'}</th>`;
-      });
-      tableHtml += '</tr></thead><tbody>';
-
-      // Rows (first 5)
-      data.rows.forEach(row => {
-        tableHtml += '<tr>';
-        data.headers.forEach((_, index) => {
-          const cellValue = row[index] || '';
-          tableHtml += `<td>${cellValue}</td>`;
-        });
-        tableHtml += '</tr>';
-      });
-
-      tableHtml += '</tbody></table>';
+      const tableHtml = buildPreviewTableHtml(data);
       document.getElementById('previewDataTable').innerHTML = tableHtml;
     }
 
@@ -463,13 +492,9 @@
       conditionalSelect.innerHTML = '<option value="">-- No conditional column --</option>';
 
       // Add column options
-      headers.forEach((header, index) => {
-        const displayName = header || `Column ${index + 1}`;
-        const optionValue = header || `Column${index + 1}`;
-
-        emailSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
-        conditionalSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
-      });
+      const optionsHtml = buildColumnOptionsHtml(headers);
+      emailSelect.innerHTML += optionsHtml;
+      conditionalSelect.innerHTML += optionsHtml;
     }
 
     // Clear preview data
@@ -515,7 +540,7 @@
           console.log(`Frontend: Result -`, res);
 
           document.getElementById('status').innerHTML =
-            `<span class="text-success"><i class="bi bi-check-circle-fill"></i> Test Email Sent to: ${res.sentTo}</span>`;
+            `<span class="text-success"><i class="bi bi-check-circle-fill"></i> Test Email Sent to: ${escapeHtml(res.sentTo)}</span>`;
           testBtn.disabled = false;
           testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
 
@@ -526,7 +551,7 @@
           console.error(`Frontend: Error message - ${err.message}`);
 
           document.getElementById('status').innerHTML =
-            `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> ${err.message}</span>
+            `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> ${escapeHtml(err.message)}</span>
              <p class="text-muted small mt-2">Please check the console logs and verify your selections.</p>`;
           testBtn.disabled = false;
           testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
@@ -609,7 +634,7 @@
           console.error(`Frontend: Error message - ${err.message}`);
 
           document.getElementById('status').innerHTML =
-            `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Initialization Error:</strong> ${err.message}</span>
+            `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Initialization Error:</strong> ${escapeHtml(err.message)}</span>
              <p class="text-muted small mt-2">Please check your selections and try again. See console for details.</p>`;
           btn.disabled = false;
           btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
@@ -693,7 +718,7 @@
                 `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Stopped</strong></span>
                  <p class="mt-2">Encountered ${MAX_CONSECUTIVE_ERRORS} consecutive errors.</p>
                  <p>Sent: ${emailsSent}/${totalRows} emails</p>
-                 <p class="text-muted small">Last error: ${result.error}</p>
+                 <p class="text-muted small">Last error: ${escapeHtml(result.error)}</p>
                  <p class="text-info small mt-2">Check spreadsheet error column for details. Fix issues and restart from row ${currentRow}.</p>`;
 
               btn.disabled = false;
@@ -720,7 +745,7 @@
                 `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Stopped</strong></span>
                  <p class="mt-2">Encountered ${MAX_CONSECUTIVE_ERRORS} consecutive errors.</p>
                  <p>Sent: ${emailsSent}/${totalRows} emails</p>
-                 <p class="text-muted small">Last error: ${err.message}</p>
+                 <p class="text-muted small">Last error: ${escapeHtml(err.message)}</p>
                  <p class="text-info small mt-2">Check console logs and spreadsheet. Fix issues and restart from row ${currentRow}.</p>`;
 
               btn.disabled = false;

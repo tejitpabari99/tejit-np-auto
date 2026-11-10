@@ -135,6 +135,7 @@ function loadIndexScript(opts = {}) {
   const ctx = {
     console: { log: noop, warn: noop, error: noop },
     window: {},
+    setTimeout: (f) => f(),
     alert: (m) => alerts.push(m),
     confirm: () => true,
     document: { getElementById: el, querySelectorAll: () => [] },
