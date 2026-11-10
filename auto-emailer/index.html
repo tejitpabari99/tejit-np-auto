@@ -8,10 +8,10 @@
     .card { border: none; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
     .help-icon { cursor: help; color: #0d6efd; margin-left: 5px; }
     .learn-link { font-size: 14px; margin-bottom: 20px; display: inline-block; }
-    .ai-section { 
-      border: 2px solid #e9ecef; 
-      border-radius: 15px; 
-      padding: 20px; 
+    .ai-section {
+      border: 2px solid #e9ecef;
+      border-radius: 15px;
+      padding: 20px;
       margin: 20px 0;
       background: #f8f9fa;
     }
@@ -21,7 +21,6 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
     }
     .ai-content {
       display: none;
@@ -46,7 +45,7 @@
   <div class="container mt-5">
     <div class="card p-5">
       <h2 class="mb-4 text-primary">NGO Mailer 🚀</h2>
-      
+
       <!-- Learn how to use link -->
       <a href="#" class="learn-link text-decoration-none" id="learnLink">
         <i class="bi bi-book"></i> Learn how to use this script
@@ -56,8 +55,8 @@
       <div class="mb-4">
         <label class="form-label d-flex align-items-center">
           1. Select Your Spreadsheet
-          <i class="bi bi-question-circle-fill help-icon" 
-             data-bs-toggle="tooltip" 
+          <i class="bi bi-question-circle-fill help-icon"
+             data-bs-toggle="tooltip"
              title="Choose the spreadsheet containing your email data"></i>
         </label>
         <select id="sheetSelect" class="form-select">
@@ -69,13 +68,27 @@
       <div class="mb-4">
         <label class="form-label d-flex align-items-center">
           2. Select Gmail Draft
-          <i class="bi bi-question-circle-fill help-icon" 
-             data-bs-toggle="tooltip" 
+          <i class="bi bi-question-circle-fill help-icon"
+             data-bs-toggle="tooltip"
              title="Choose the draft email template to use"></i>
         </label>
         <select id="draftSelect" class="form-select">
           <option>Loading drafts...</option>
         </select>
+      </div>
+
+      <!-- 3. Email Column Selection -->
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center">
+          3. Column to Use for Email
+          <i class="bi bi-question-circle-fill help-icon"
+             data-bs-toggle="tooltip"
+             title="Select the column that contains recipient email addresses"></i>
+        </label>
+        <select id="emailColumn" class="form-select" required>
+          <option value="">-- Select a column --</option>
+        </select>
+        <small class="text-muted mt-1 d-block">Use variables like {{First Name}}, {{Company}} in your draft - they'll be replaced with column values!</small>
       </div>
 
       <!-- Preview Data Section -->
@@ -86,7 +99,7 @@
           </h5>
           <i class="bi bi-chevron-down toggle-icon" id="togglePreviewDataIcon"></i>
         </div>
-        
+
         <div class="ai-content" id="previewDataContent">
           <div id="previewDataTable" class="table-responsive">
             <p class="text-muted">Select a spreadsheet to preview data</p>
@@ -94,59 +107,74 @@
         </div>
       </div>
 
-      <!-- 3. Email Column Selection -->
-      <div class="mb-4">
-        <label class="form-label d-flex align-items-center">
-          3. Column to Use for Email
-          <i class="bi bi-question-circle-fill help-icon" 
-             data-bs-toggle="tooltip" 
-             title="Select the column that contains recipient email addresses"></i>
-        </label>
-        <select id="emailColumn" class="form-select" required>
-          <option value="">-- Select a column --</option>
-        </select>
-        <small class="text-muted mt-1 d-block">Use variables like {{First Name}}, {{Company}} in your draft - they'll be replaced with column values!</small>
+      <!-- 4. Advance Section -->
+      <div class="ai-section">
+        <div class="ai-header" onclick="toggleAdvance()">
+          <h5 class="mb-0">
+            <i class="bi bi-gear"></i> Advanced
+          </h5>
+          <i class="bi bi-chevron-down toggle-icon" id="toggleAdvanceIcon"></i>
+        </div>
+
+        <div class="ai-content" id="advanceContent">
+          <!-- Start from Row and Limit Emails - Side by Side -->
+          <div class="row mb-3">
+            <!-- Start from Row -->
+            <div class="col-md-6">
+              <label class="form-label d-flex align-items-center">
+                Start from Row (Optional)
+                <i class="bi bi-question-circle-fill help-icon"
+                   data-bs-toggle="tooltip"
+                   title="Enter a row number to start sending from (1 = first data row). Leave blank to start from the beginning."></i>
+              </label>
+              <input type="number" id="startRow" class="form-control" min="1" placeholder="Leave blank to start from row 1">
+              <small class="text-muted mt-1 d-block">Start from a specific row (e.g., 5)</small>
+            </div>
+
+            <!-- Limit Emails -->
+            <div class="col-md-6">
+              <label class="form-label d-flex align-items-center">
+                Limit Emails (Optional)
+                <i class="bi bi-question-circle-fill help-icon"
+                   data-bs-toggle="tooltip"
+                   title="Limit the number of emails to send. Leave blank to send all remaining emails. Only counts unsent emails (where conditional column is false or not set)."></i>
+              </label>
+              <input type="number" id="limitEmails" class="form-control" min="1" placeholder="Leave blank for no limit">
+              <small class="text-muted mt-1 d-block">Max emails to send (e.g., 10) - only counts unsent emails</small>
+            </div>
+          </div>
+
+          <!-- Conditional Column -->
+          <div class="mb-3">
+            <label class="form-label d-flex align-items-center">
+              Conditional Column (Optional)
+              <i class="bi bi-question-circle-fill help-icon"
+                 data-bs-toggle="tooltip"
+                 title="Select a column containing TRUE/FALSE values. TRUE = email already sent (skip), FALSE = email not sent (send). Case insensitive. If not selected, all rows will be processed."></i>
+            </label>
+            <select id="conditionalColumn" class="form-select">
+              <option value="">-- No conditional column --</option>
+            </select>
+            <small class="text-muted mt-1 d-block">Column with TRUE (skip) or FALSE (send) values to control email sending</small>
+          </div>
+
+          <!-- Store Results -->
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="storeResults" checked>
+              <label class="form-check-label d-flex align-items-center" for="storeResults">
+                Store results in spreadsheet
+                <i class="bi bi-question-circle-fill help-icon"
+                   data-bs-toggle="tooltip"
+                   title="When checked, adds columns to track which emails were sent and any errors. Uncheck to send emails without updating the spreadsheet."></i>
+              </label>
+            </div>
+            <small class="text-muted d-block">Adds 'Email Sent' and 'Email Error' columns with timestamps to track progress</small>
+          </div>
+        </div>
       </div>
 
-      <!-- 4. Start from Row (Optional) -->
-      <div class="row mb-4">
-        <div class="col-md-6">
-          <label class="form-label d-flex align-items-center">
-            4. Start from Row (Optional)
-            <i class="bi bi-question-circle-fill help-icon" 
-               data-bs-toggle="tooltip" 
-               title="Enter a row number to start sending from (1 = first data row). Leave blank to start from the beginning."></i>
-          </label>
-          <input type="number" id="startRow" class="form-control" min="1" placeholder="Leave blank to start from row 1">
-          <small class="text-muted mt-1 d-block">Start from a specific row (e.g., 5)</small>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label d-flex align-items-center">
-            5. Limit Emails (Optional)
-            <i class="bi bi-question-circle-fill help-icon" 
-               data-bs-toggle="tooltip" 
-               title="Limit the number of emails to send. Leave blank to send all remaining emails."></i>
-          </label>
-          <input type="number" id="limitEmails" class="form-control" min="1" placeholder="Leave blank for no limit">
-          <small class="text-muted mt-1 d-block">Max emails to send (e.g., 10)</small>
-        </div>
-      </div>
-
-      <!-- 6. Store Results in Sheet -->
-      <div class="mb-4">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="storeResults" checked>
-          <label class="form-check-label d-flex align-items-center" for="storeResults">
-            Store results in spreadsheet
-            <i class="bi bi-question-circle-fill help-icon" 
-               data-bs-toggle="tooltip" 
-               title="When checked, adds columns to track which emails were sent and any errors. Uncheck to send emails without updating the spreadsheet."></i>
-          </label>
-        </div>
-        <small class="text-muted d-block">Adds 'Email Sent' and 'Email Error' columns with timestamps to track progress</small>
-      </div>
-
-      <!-- 7. Run Buttons -->
+      <!-- 5. Run Buttons -->
       <div class="row mt-4">
         <div class="col-md-6 mb-2">
           <button onclick="sendTest()" class="btn btn-warning w-100 p-3 fw-bold" id="testBtn">
@@ -173,97 +201,164 @@
     let previewData = null;
 
     // Initialize on page load
-    console.log("Onload function");
+    console.log("Frontend: Onload function");
+    console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
+
     window.onload = () => {
-      console.log("Onload Start");
+      console.log("Frontend: Onload Start");
+      console.log(`Frontend: User Agent - ${navigator.userAgent}`);
 
       // Initialize Bootstrap tooltips
       var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
       tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) });
 
       // Load spreadsheets with Select2
-      console.log("Loading Spreadsheet");
-      google.script.run.withSuccessHandler(sheets => {
-        let select = document.getElementById('sheetSelect');
-        select.innerHTML = '<option value="">-- Select a spreadsheet --</option>' + 
-          sheets.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-        
-        // Initialize Select2 for searchable dropdown
-        $('#sheetSelect').select2({
-          theme: 'bootstrap-5',
-          placeholder: 'Search for a spreadsheet...',
-          allowClear: true
-        }).on('change', function() {
-          currentSheetId = $(this).val();
-          if (currentSheetId) {
-            loadPreviewData(currentSheetId);
-          } else {
-            clearPreviewData();
+      console.log("Frontend: Loading spreadsheets...");
+
+      google.script.run
+        .withSuccessHandler(sheets => {
+          console.log(`Frontend: Received ${sheets.length} spreadsheets`);
+
+          if (!sheets || sheets.length === 0) {
+            console.warn("Frontend: No spreadsheets found");
+            let select = document.getElementById('sheetSelect');
+            select.innerHTML = '<option value="">No spreadsheets found</option>';
+            alert("No spreadsheets found in your Drive. Please create a spreadsheet first.");
+            return;
           }
-        });
-        console.log(`SheetId: ${currentSheetId}`);
-      })
-      .withFailureHandler(err => {
-        console.error("Backend Error:", err);
-        alert("Failed to load sheets: " + err.message);
-      }).getRecentSheets();
+
+          let select = document.getElementById('sheetSelect');
+          select.innerHTML = '<option value="">-- Select a spreadsheet --</option>' +
+            sheets.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+          // Initialize Select2 for searchable dropdown
+          $('#sheetSelect').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Search for a spreadsheet...',
+            allowClear: true
+          }).on('change', function() {
+            currentSheetId = $(this).val();
+            console.log(`Frontend: Spreadsheet selected - ${currentSheetId}`);
+            if (currentSheetId) {
+              loadPreviewData(currentSheetId);
+            } else {
+              clearPreviewData();
+            }
+          });
+
+          console.log("Frontend: Spreadsheet dropdown initialized successfully");
+        })
+        .withFailureHandler(err => {
+          console.error("Frontend: ERROR loading spreadsheets -", err);
+          console.error(`Frontend: Error message - ${err.message}`);
+
+          let select = document.getElementById('sheetSelect');
+          select.innerHTML = '<option value="">Error loading spreadsheets</option>';
+
+          alert("Failed to load spreadsheets: " + err.message + "\n\nPlease ensure you have granted Drive permissions and try refreshing the page.");
+        })
+        .getRecentSheets();
 
       // Load Gmail drafts with Select2
-      console.log("Loading gmail drafts");
+      console.log("Frontend: Loading Gmail drafts...");
+
       google.script.run
-      .withSuccessHandler(drafts => {
-        let select = document.getElementById('draftSelect');
-        select.innerHTML = '<option value="">-- Select a draft --</option>' + 
-          drafts.map(d => `<option value="${d.subject}">${d.subject}</option>`).join('');
-        
-        // Initialize Select2 for searchable dropdown
-        $('#draftSelect').select2({
-          theme: 'bootstrap-5',
-          placeholder: 'Search for a draft...',
-          allowClear: true
-        });
-        console.log(`Draft dropdown loading`);
-      })
-      .withFailureHandler(err => {
-        console.error("Backend Error:", err);
-        alert("Failed to load drafts: " + err.message);
-      })
-      .getGmailDrafts();
+        .withSuccessHandler(drafts => {
+          console.log(`Frontend: Received ${drafts.length} drafts`);
+
+          if (!drafts || drafts.length === 0) {
+            console.warn("Frontend: No Gmail drafts found");
+            let select = document.getElementById('draftSelect');
+            select.innerHTML = '<option value="">No drafts found</option>';
+            alert("No Gmail drafts found. Please create a draft email in Gmail first.");
+            return;
+          }
+
+          let select = document.getElementById('draftSelect');
+          select.innerHTML = '<option value="">-- Select a draft --</option>' +
+            drafts.map(d => `<option value="${d.subject}">${d.subject}</option>`).join('');
+
+          // Initialize Select2 for searchable dropdown
+          $('#draftSelect').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Search for a draft...',
+            allowClear: true
+          });
+
+          console.log("Frontend: Draft dropdown initialized successfully");
+        })
+        .withFailureHandler(err => {
+          console.error("Frontend: ERROR loading drafts -", err);
+          console.error(`Frontend: Error message - ${err.message}`);
+
+          let select = document.getElementById('draftSelect');
+          select.innerHTML = '<option value="">Error loading drafts</option>';
+
+          alert("Failed to load Gmail drafts: " + err.message + "\n\nPlease ensure you have granted Gmail permissions and try refreshing the page.");
+        })
+        .getGmailDrafts();
     };
 
     // Toggle Preview Data section
     function togglePreviewData() {
       const content = document.getElementById('previewDataContent');
       const icon = document.getElementById('togglePreviewDataIcon');
-      
+
+      content.classList.toggle('show');
+      icon.classList.toggle('rotated');
+    }
+
+    // Toggle Advance section
+    function toggleAdvance() {
+      const content = document.getElementById('advanceContent');
+      const icon = document.getElementById('toggleAdvanceIcon');
+
       content.classList.toggle('show');
       icon.classList.toggle('rotated');
     }
 
     // Load preview data when sheet is selected
     function loadPreviewData(sheetId) {
-      console.log("Loading preview data for sheet:", sheetId);
-      document.getElementById('previewDataTable').innerHTML = '<p class="text-muted">Loading data...</p>';
-      
+      console.log(`Frontend: Loading preview data for sheet: ${sheetId}`);
+      console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
+
+      document.getElementById('previewDataTable').innerHTML = '<p class="text-muted"><span class="spinner-border spinner-border-sm"></span> Loading data...</p>';
+
       google.script.run
         .withSuccessHandler(function(data) {
-          console.log("Preview data received:", data);
+          console.log("Frontend: Preview data received successfully");
+          console.log(`Frontend: Data structure -`, data);
+
           if (!data) {
-            console.error("Received null data");
-            document.getElementById('previewDataTable').innerHTML = '<p class="text-danger">Error: No data received from server</p>';
+            console.error("Frontend: Received null/undefined data");
+            document.getElementById('previewDataTable').innerHTML = '<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Error: No data received from server</p>';
             return;
           }
+
+          if (!data.headers || !data.rows) {
+            console.error("Frontend: Invalid data structure received");
+            document.getElementById('previewDataTable').innerHTML = '<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Error: Invalid data structure</p>';
+            return;
+          }
+
+          console.log(`Frontend: Preview data - ${data.rows.length} rows, ${data.headers.length} columns`);
+
           previewData = data;
           displayPreviewData(data);
+
           if (data.headers) {
             populateColumnDropdowns(data.headers);
           }
         })
         .withFailureHandler(function(err) {
-          console.error("Failed to load preview data:", err);
+          console.error("Frontend: ERROR loading preview data -", err);
+          console.error(`Frontend: Error message - ${err.message}`);
+
           previewData = null;
-          document.getElementById('previewDataTable').innerHTML = '<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> ' + err.message + '</p>';
-          
+          document.getElementById('previewDataTable').innerHTML =
+            `<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error loading preview:</strong> ${err.message}</p>
+             <p class="text-muted small">Please check your spreadsheet permissions and data, then try selecting it again.</p>`;
+
           // Clear column dropdowns when there's an error
           document.getElementById('emailColumn').innerHTML = '<option value="">-- Select a column --</option>';
         })
@@ -278,13 +373,13 @@
       }
 
       let tableHtml = '<table class="table table-striped table-bordered table-sm"><thead class="table-primary"><tr>';
-      
+
       // Headers
       data.headers.forEach(header => {
         tableHtml += `<th>${header || '(empty)'}</th>`;
       });
       tableHtml += '</tr></thead><tbody>';
-      
+
       // Rows (first 5)
       data.rows.forEach(row => {
         tableHtml += '<tr>';
@@ -294,7 +389,7 @@
         });
         tableHtml += '</tr>';
       });
-      
+
       tableHtml += '</tbody></table>';
       document.getElementById('previewDataTable').innerHTML = tableHtml;
     }
@@ -302,16 +397,19 @@
     // Populate column dropdowns with header names
     function populateColumnDropdowns(headers) {
       const emailSelect = document.getElementById('emailColumn');
-      
+      const conditionalSelect = document.getElementById('conditionalColumn');
+
       // Clear existing options except the first placeholder
       emailSelect.innerHTML = '<option value="">-- Select a column --</option>';
-      
+      conditionalSelect.innerHTML = '<option value="">-- No conditional column --</option>';
+
       // Add column options
       headers.forEach((header, index) => {
         const displayName = header || `Column ${index + 1}`;
         const optionValue = header || `Column${index + 1}`;
-        
+
         emailSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
+        conditionalSelect.innerHTML += `<option value="${optionValue}">${displayName}</option>`;
       });
     }
 
@@ -319,45 +417,72 @@
     function clearPreviewData() {
       previewData = null;
       document.getElementById('previewDataTable').innerHTML = '<p class="text-muted">Select a spreadsheet to preview data</p>';
-      
+
       // Clear column dropdowns
       document.getElementById('emailColumn').innerHTML = '<option value="">-- Select a column --</option>';
+      document.getElementById('conditionalColumn').innerHTML = '<option value="">-- No conditional column --</option>';
     }
-    
+
     // Send test email
-    console.log("Send Test Email function");
+    console.log("Frontend: Send Test Email function loaded");
+
     function sendTest() {
-      console.log("Starting Test Email...");
+      console.log("Frontend: ========== TEST EMAIL START ==========");
+      console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
+
       const testBtn = document.getElementById('testBtn');
       const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
       const draftSubject = document.getElementById('draftSelect').value;
       const emailColumn = document.getElementById('emailColumn').value;
 
+      console.log(`Frontend: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
+
       if (!sheetId || !draftSubject || !emailColumn) {
-        alert('Please select a spreadsheet, draft, and email column.');
+        console.warn("Frontend: Missing required parameters for test email");
+        alert('Please select a spreadsheet, draft, and email column before sending a test email.');
         return;
       }
 
       testBtn.disabled = true;
       testBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending Test...';
-      document.getElementById('status').innerHTML = '';
+      document.getElementById('status').innerHTML = '<span class="text-info">Preparing test email...</span>';
 
-      google.script.run.withSuccessHandler(res => {
-        document.getElementById('status').innerHTML = '<span class="text-success">✅ Test Email Sent to: ' + res.sentTo + '</span>';
-        testBtn.disabled = false;
-        testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
-      }).withFailureHandler(err => {
-        document.getElementById('status').innerHTML = '<span class="text-danger">❌ Error: ' + err.message + '</span>';
-        testBtn.disabled = false;
-        testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
-      }).sendTestEmail(sheetId, draftSubject, emailColumn);
-      console.log("Test email request sent...");
+      console.log("Frontend: Sending test email request to backend...");
+
+      google.script.run
+        .withSuccessHandler(res => {
+          console.log("Frontend: Test email sent successfully");
+          console.log(`Frontend: Result -`, res);
+
+          document.getElementById('status').innerHTML =
+            `<span class="text-success"><i class="bi bi-check-circle-fill"></i> Test Email Sent to: ${res.sentTo}</span>`;
+          testBtn.disabled = false;
+          testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
+
+          console.log("Frontend: ========== TEST EMAIL SUCCESS ==========");
+        })
+        .withFailureHandler(err => {
+          console.error("Frontend: ERROR sending test email -", err);
+          console.error(`Frontend: Error message - ${err.message}`);
+
+          document.getElementById('status').innerHTML =
+            `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error:</strong> ${err.message}</span>
+             <p class="text-muted small mt-2">Please check the console logs and verify your selections.</p>`;
+          testBtn.disabled = false;
+          testBtn.innerHTML = '<i class="bi bi-envelope-check-fill"></i> Send Test Email';
+
+          console.log("Frontend: ========== TEST EMAIL FAILED ==========");
+        })
+        .sendTestEmail(sheetId, draftSubject, emailColumn);
     }
-    
+
     // Start sending emails with progress tracking
-    console.log("Sending Email function");
+    console.log("Frontend: Sending Email function loaded");
+
     function startSending() {
-      console.log("Start Email sending...");
+      console.log("Frontend: ========== EMAIL BATCH START ==========");
+      console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
+
       const btn = document.getElementById('sendBtn');
       const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
       const draftSubject = document.getElementById('draftSelect').value;
@@ -367,71 +492,123 @@
       const limitEmailsInput = document.getElementById('limitEmails').value;
       const limitEmails = limitEmailsInput ? parseInt(limitEmailsInput) : null;
       const storeResults = document.getElementById('storeResults').checked;
+      const conditionalColumn = document.getElementById('conditionalColumn').value;
 
+      console.log(`Frontend: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
+      console.log(`Frontend: Settings - startRow: ${startRow}, limitEmails: ${limitEmails}, storeResults: ${storeResults}, conditionalColumn: ${conditionalColumn}`);
+
+      // Validation
       if (!sheetId || !draftSubject || !emailColumn) {
-        alert('Please select a spreadsheet, draft, and specify the email column.');
+        console.warn("Frontend: Missing required parameters");
+        alert('Please select a spreadsheet, draft, and specify the email column before sending.');
         return;
       }
 
       // Validate startRow is a positive integer
       if (startRow < 1 || !Number.isInteger(startRow)) {
+        console.error(`Frontend: Invalid startRow value: ${startRow}`);
         alert('Start row must be a positive integer (1 or greater).');
         return;
       }
 
       // Validate limitEmails if provided
       if (limitEmails !== null && (limitEmails < 1 || !Number.isInteger(limitEmails))) {
+        console.error(`Frontend: Invalid limitEmails value: ${limitEmails}`);
         alert('Limit emails must be a positive integer (1 or greater).');
         return;
       }
 
-      // Validate startRow is within data range
-      if (previewData && previewData.rows && startRow > previewData.rows.length) {
-        alert(`Start row (${startRow}) exceeds total number of data rows (${previewData.rows.length}). Please enter a valid row number.`);
+      // Confirm before sending
+      const confirmMessage = limitEmails
+        ? `Ready to send up to ${limitEmails} emails starting from row ${startRow}. Continue?`
+        : `Ready to send emails starting from row ${startRow}. This will process all remaining rows. Continue?`;
+
+      if (!confirm(confirmMessage)) {
+        console.log("Frontend: User cancelled email sending");
         return;
       }
 
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Initializing...';
-      document.getElementById('status').innerHTML = '';
+      document.getElementById('status').innerHTML = '<span class="text-info">Initializing batch...</span>';
+
+      console.log("Frontend: Sending batch initialization request...");
 
       // Initialize batch
       google.script.run
         .withSuccessHandler(function(batchInfo) {
-          console.log("Batch initialized:", batchInfo);
+          console.log("Frontend: Batch initialized successfully");
+          console.log(`Frontend: Batch info -`, batchInfo);
+          console.log(`Frontend: Will send ${batchInfo.totalRows} emails`);
+
           sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults);
         })
         .withFailureHandler(function(err) {
-          document.getElementById('status').innerHTML = '<span class="text-danger">❌ Error: ' + err.message + '</span>';
+          console.error("Frontend: ERROR initializing batch -", err);
+          console.error(`Frontend: Error message - ${err.message}`);
+
+          document.getElementById('status').innerHTML =
+            `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Initialization Error:</strong> ${err.message}</span>
+             <p class="text-muted small mt-2">Please check your selections and try again. See console for details.</p>`;
           btn.disabled = false;
           btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+
+          console.log("Frontend: ========== BATCH INITIALIZATION FAILED ==========");
         })
-        .sendEmailBatch(sheetId, draftSubject, emailColumn, startRow, limitEmails, storeResults);
+        .sendEmailBatch(sheetId, draftSubject, emailColumn, startRow, limitEmails, storeResults, conditionalColumn);
     }
 
     // Send emails one by one with progress updates
     function sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults) {
-      let currentRow = batchInfo.startRow;
+      console.log("Frontend: Starting sequential email sending");
+      console.log(`Frontend: Total emails to send: ${batchInfo.totalRows}`);
+      console.log(`Frontend: Eligible row indices:`, batchInfo.eligibleRowIndices);
+
+      let currentIndex = 0; // Index in the eligibleRowIndices array
       let emailsSent = 0;
+      let emailsFailed = 0;
       let consecutiveErrors = 0;
       const MAX_CONSECUTIVE_ERRORS = 5;
       const totalRows = batchInfo.totalRows;
+      const eligibleRowIndices = batchInfo.eligibleRowIndices || [];
+      const startTime = Date.now();
 
       function sendNext() {
-        if (currentRow >= batchInfo.startRow + totalRows) {
+        if (currentIndex >= totalRows) {
           // All done
-          document.getElementById('status').innerHTML = 
-            `<span class="text-success">✅ Complete! Sent ${emailsSent}/${totalRows} emails</span>`;
+          const endTime = Date.now();
+          const duration = ((endTime - startTime) / 1000).toFixed(1);
+
+          console.log("Frontend: ========== EMAIL BATCH COMPLETE ==========");
+          console.log(`Frontend: Sent: ${emailsSent}, Failed: ${emailsFailed}, Total: ${totalRows}`);
+          console.log(`Frontend: Duration: ${duration} seconds`);
+
+          const successRate = totalRows > 0 ? ((emailsSent / totalRows) * 100).toFixed(1) : 0;
+
+          document.getElementById('status').innerHTML =
+            `<span class="text-success"><i class="bi bi-check-circle-fill"></i> <strong>Complete!</strong></span>
+             <p class="mt-2">Sent: ${emailsSent}/${totalRows} emails (${successRate}% success rate)</p>
+             <p class="text-muted small">Duration: ${duration} seconds</p>
+             ${emailsFailed > 0 ? `<p class="text-warning small">Failed: ${emailsFailed} emails - check spreadsheet for details</p>` : ''}`;
+
           btn.disabled = false;
           btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
           return;
         }
 
+        // Get the actual row index from the eligible rows array
+        const currentRow = eligibleRowIndices[currentIndex];
+
         // Update progress display
-        const progress = currentRow - batchInfo.startRow + 1;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Sending ${progress}/${totalRows}...`;
-        document.getElementById('status').innerHTML = 
-          `<span class="text-info">📧 Sending email ${progress}/${totalRows}...</span>`;
+        const progress = currentIndex + 1;
+        const percentage = ((progress / totalRows) * 100).toFixed(0);
+
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Sending ${progress}/${totalRows} (${percentage}%)`;
+        document.getElementById('status').innerHTML =
+          `<span class="text-info"><i class="bi bi-envelope-fill"></i> Sending email ${progress}/${totalRows} (${percentage}%)...</span>
+           <p class="text-muted small mt-1">Sent: ${emailsSent} | Failed: ${emailsFailed} | Row: ${currentRow}</p>`;
+
+        console.log(`Frontend: Sending email ${progress}/${totalRows} (row ${currentRow})`);
 
         // Send single email
         google.script.run
@@ -439,46 +616,67 @@
             if (result.success) {
               emailsSent++;
               consecutiveErrors = 0;
+              console.log(`Frontend: Email ${progress}/${totalRows} sent successfully`);
             } else {
+              emailsFailed++;
               consecutiveErrors++;
-              console.log(`Error on row ${currentRow}: ${result.error}`);
+              console.warn(`Frontend: Email ${progress}/${totalRows} failed - ${result.error}`);
             }
 
             // Check if we've hit consecutive error limit
             if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-              document.getElementById('status').innerHTML = 
-                `<span class="text-danger">❌ Stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Last error: ${result.error}</span>`;
+              console.error(`Frontend: Stopped due to ${MAX_CONSECUTIVE_ERRORS} consecutive errors`);
+              console.log("Frontend: ========== EMAIL BATCH STOPPED ==========");
+
+              document.getElementById('status').innerHTML =
+                `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Stopped</strong></span>
+                 <p class="mt-2">Encountered ${MAX_CONSECUTIVE_ERRORS} consecutive errors.</p>
+                 <p>Sent: ${emailsSent}/${totalRows} emails</p>
+                 <p class="text-muted small">Last error: ${result.error}</p>
+                 <p class="text-info small mt-2">Check spreadsheet error column for details. Fix issues and restart from row ${currentRow}.</p>`;
+
               btn.disabled = false;
               btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
               return;
             }
 
             // Wait 100ms then send next
-            currentRow++;
+            currentIndex++;
             setTimeout(sendNext, 100);
           })
           .withFailureHandler(function(err) {
+            emailsFailed++;
             consecutiveErrors++;
-            console.error(`Failed to send email for row ${currentRow}:`, err);
-            
+            console.error(`Frontend: ERROR sending email ${progress}/${totalRows} -`, err);
+            console.error(`Frontend: Error message - ${err.message}`);
+
             // Check if we've hit consecutive error limit
             if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-              document.getElementById('status').innerHTML = 
-                `<span class="text-danger">❌ Stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors. Last error: ${err.message}</span>`;
+              console.error(`Frontend: Stopped due to ${MAX_CONSECUTIVE_ERRORS} consecutive errors`);
+              console.log("Frontend: ========== EMAIL BATCH STOPPED ==========");
+
+              document.getElementById('status').innerHTML =
+                `<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Stopped</strong></span>
+                 <p class="mt-2">Encountered ${MAX_CONSECUTIVE_ERRORS} consecutive errors.</p>
+                 <p>Sent: ${emailsSent}/${totalRows} emails</p>
+                 <p class="text-muted small">Last error: ${err.message}</p>
+                 <p class="text-info small mt-2">Check console logs and spreadsheet. Fix issues and restart from row ${currentRow}.</p>`;
+
               btn.disabled = false;
               btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
               return;
             }
 
             // Continue to next row despite error
-            currentRow++;
+            currentIndex++;
             setTimeout(sendNext, 100);
           })
-          .sendSingleEmail(sheetId, draftSubject, emailColumn, currentRow, 
-                          batchInfo.sentColIndex, batchInfo.errorColIndex, storeResults);
+          .sendSingleEmail(sheetId, draftSubject, emailColumn, currentRow,
+                          batchInfo.sentColIndex, batchInfo.errorColIndex, storeResults, batchInfo.conditionalColIndex);
       }
 
       // Start sending
+      console.log("Frontend: Beginning email send loop");
       sendNext();
     }
   </script>
