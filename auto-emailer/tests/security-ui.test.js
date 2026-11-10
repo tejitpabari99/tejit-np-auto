@@ -48,9 +48,10 @@ test('preview table escapes headers and cells', () => {
 });
 
 test('error/status messages are escaped (test email, preview, tabs, batch)', () => {
-  const vals = { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'E', tabSelect: 'T' };
+  const vals = { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'E', tabSelect: 'T', orgName: 'Acme' };
   let h = loadIndexScript({ values: vals });
   h.ctx.sendTest();
+  h.run.state.ok({ org: 'Acme' });
   h.run.state.ok({ sentTo: EVIL1 });
   assertSafe(h.el('status').innerHTML);
   h.run.state.fail({ message: EVIL2 });
@@ -68,14 +69,16 @@ test('error/status messages are escaped (test email, preview, tabs, batch)', () 
 
   h = loadIndexScript({ values: vals });
   h.ctx.startSending();
+  h.run.state.ok({ org: 'Acme' });
   h.run.state.fail({ message: EVIL1 });
   assertSafe(h.el('status').innerHTML);
 });
 
 test('sequential send: result.error and err.message escaped in stopped message', () => {
-  const vals = { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'E', tabSelect: 'T' };
+  const vals = { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'E', tabSelect: 'T', orgName: 'Acme' };
   let h = loadIndexScript({ values: vals });
   h.ctx.startSending();
+  h.run.state.ok({ org: 'Acme' });
   h.run.state.ok({ totalRows: 6, eligibleRowIndices: [1, 2, 3, 4, 5, 6] });
   for (let i = 0; i < 5; i++) h.run.state.ok({ success: false, error: EVIL1 });
   assert.match(h.el('status').innerHTML, /Stopped/);
@@ -83,6 +86,7 @@ test('sequential send: result.error and err.message escaped in stopped message',
 
   h = loadIndexScript({ values: vals });
   h.ctx.startSending();
+  h.run.state.ok({ org: 'Acme' });
   h.run.state.ok({ totalRows: 6, eligibleRowIndices: [1, 2, 3, 4, 5, 6] });
   for (let i = 0; i < 5; i++) h.run.state.fail({ message: EVIL2 });
   assert.match(h.el('status').innerHTML, /Stopped/);
