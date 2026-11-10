@@ -1,0 +1,22 @@
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax-check Apps Script files
+        run: |
+          set -e
+          for f in */*.gs; do cp "$f" "${RUNNER_TEMP}/$(basename "$f").js"; node --check "${RUNNER_TEMP}/$(basename "$f").js"; echo "ok $f"; done
+      - name: Validate JSON files
+        run: |
+          set -e
+          for f in $(git ls-files '*.json'); do python3 -m json.tool "$f" > /dev/null; echo "ok $f"; done
+      - name: Run auto-emailer tests
+        run: node --test auto-emailer/tests/*.test.js
