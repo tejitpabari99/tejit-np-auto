@@ -72,7 +72,7 @@ A **Gmail draft** is an email you write in Gmail and save without sending. Gmail
 5. Wherever you want a person's own details, type the **column name** inside double curly brackets: `{{` before and `}}` after.
    - Type the column name **exactly** as it is in row 1 of your sheet.
    - Do **not** add spaces inside the brackets: write `{{Full Name}}`, not `{{ Full Name }}`.
-6. You can also use these in the **subject line**, for example `Thank you, {{Full Name}}!`.
+6. You can also use them in the **subject line**, for example `Thank you, {{Full Name}}!`. **But** a placeholder in the subject is only filled in if the **same** `{{...}}` also appears somewhere in the **email body**. If it is only in the subject, it comes out blank.
 7. You may add **attachments** and **pictures**. They are sent to everyone.
 8. Close the draft. Gmail saves it automatically.
 
@@ -116,7 +116,14 @@ The first time you open the tool, Google asks you to allow it. You only do this 
 
 **Why Google shows a warning:** the tool has not gone through Google's paid review process for public apps. That is why Google calls it "unverified". It is safe to continue if you trust the person who shared it with you.
 
-**Your data stays with you:** the tool runs **as you, inside your own Google account**. The developer cannot see your sheets, your emails or your contacts, and nothing is stored anywhere else.
+**Safety check before you continue:** only go on if **both** are true:
+
+- You opened the tool from the link in this guide, **and**
+- Google's screen shows the developer as **tejitpabari99@gmail.com**.
+
+If it shows any other address, click **Back to safety** and do not continue.
+
+**How your data is handled:** the tool runs **as you, from your own Google account**. See [Privacy](#privacy) for the full, honest details.
 
 1. Click **Review permissions**.
 
@@ -143,11 +150,11 @@ _(Picture coming soon: the Continue button at the bottom of the permission scree
 
 | Google asks to… | Why the tool needs it |
 |---|---|
-| See your Google Drive files (read only) | To list your spreadsheets so you can pick one. |
-| View your email messages and settings (read only) | To read your Gmail drafts so you can pick your template. |
+| See your Google Drive files (read only) | This lets the tool see and download **all** your Drive files. The tool only lists your spreadsheets and reads the one you pick. |
+| View your email messages and settings (read only) | This lets the tool read **all** your email. The tool only reads your drafts, to find your template. |
 | Send email on your behalf | To send the emails, from your address. |
 | See, edit, create and delete your spreadsheets | To read your list and (if you choose) write the "Email Sent" results back into it. |
-| Connect to an external service | Needed by Google's script system to run the tool. |
+| Connect to an external service | The tool asks for this, but does not currently use it. |
 | See your primary Google Account email address | To send the **test email** to you. |
 
 ---
@@ -206,7 +213,7 @@ Click **Advanced** on the dashboard to open these. All are optional.
 | Option | What it does | When to use it |
 |---|---|---|
 | **Start from Row** | Starts sending from a given person. `1` means the first person (the row just under the column names, row 2 in the sheet). `5` means the fifth person. Leave blank to start from the top. | You already sent to the first few people and want to skip them. |
-| **Limit Emails** | Sends to at most this many people, then stops. It only counts people who will actually get an email (it does not count rows skipped by the Conditional Column). Leave blank for no limit. | You are close to the daily limit, or you want to send in small batches. |
+| **Limit Emails** | Sends to at most this many people, then stops. It counts people the tool will **try** to email. Rows marked TRUE in the Conditional Column are not counted. Rows with no email address, or where the send fails, **still count**. Leave blank for no limit. | You are close to the daily limit, or you want to send in small batches. |
 | **Conditional Column** | Pick a column that says whether each person **already got** the email. **TRUE** = already sent, **skip** this person. **FALSE** or **empty** = **send** to this person. Capital or small letters both work. Any other value (like "yes") stops the run with an error. | You only want to email some people, or you are continuing a send that stopped. |
 | **Store results in spreadsheet** | Ticked by default. Each run adds two new columns at the end of your sheet: **Email Sent &lt;date and time&gt;** (TRUE if sent, FALSE if not) and **Email Error &lt;date and time&gt;** (the reason, if it failed). | Keep it on, so you have a record of who got the email. |
 
@@ -216,8 +223,14 @@ Click **Advanced** on the dashboard to open these. All are optional.
 
 Pick **one** of these:
 
-- **Easiest:** in the Advanced options, set **Conditional Column** to the newest **Email Sent &lt;date and time&gt;** column from your last run. People marked TRUE are skipped; everyone else is sent to. (Rows that run never reached are empty, so they are sent to as well.)
-- **Or:** set **Start from Row** to the number of the next person who did not get the email.
+- **Simplest:** note the number of the last person who got the email. Next time, set **Start from Row** to the next number.
+- **Or keep one column of your own** (for example `Already Sent`, like in the [sample sheet](docs/sample-sheet.csv)):
+  1. After each run, copy the **TRUE** values from that run's **Email Sent &lt;date and time&gt;** column into your `Already Sent` column.
+  2. Next time, set **Conditional Column** to `Already Sent`.
+
+Do **not** use the newest **Email Sent** column as the Conditional Column on its own. People skipped in that run are not written into it, so they would be emailed again on the next run.
+
+After adding or changing columns, **refresh the tool's page** and pick your spreadsheet again so the new columns show up in the dropdowns.
 
 ---
 
@@ -225,9 +238,9 @@ Pick **one** of these:
 
 | Problem | What to do |
 |---|---|
-| My spreadsheet is not in the list. | Type part of its name in the box to search. The list shows up to 50 sheets. Also check it is a real Google Sheet, not an `.xlsx` file (see Step 1). |
+| My spreadsheet is not in the list. | The list shows up to 50 sheets, and the search box only searches those 50. If yours is missing, make a copy of it (**File → Make a copy**) or remove old sheets you do not need, then refresh the page. Also check it is a real Google Sheet, not an `.xlsx` file (see Step 1). |
 | My draft is not in the list, or I get "Draft … not found". | Make sure it is still in Gmail's **Drafts** folder (not sent or deleted). Refresh the tool's page. Make sure no other draft has the same subject. |
-| A `{{...}}` came out blank in the email. | The name inside the brackets does not match a column name. Check spelling and spaces against row 1 of your sheet, and remove any spaces just inside the brackets. Also check that cell is not empty for that person. |
+| A `{{...}}` came out blank in the email. | The name inside the brackets does not match a column name. Check spelling and spaces against row 1 of your sheet, and remove any spaces just inside the brackets. Also check that cell is not empty for that person. If it is in the **subject**, the same `{{...}}` must also appear in the email body. |
 | "No email address" in the error column. | That person's email cell is empty. Fill it in, then continue (see above). |
 | "Invalid conditional column value". | The Conditional Column must contain only TRUE, FALSE or nothing. Fix the odd cell, or pick a different column. |
 | Emails stopped partway / quota or limit error. | You probably reached Google's daily limit (about 100 personal, 1,500 Workspace). Wait 24 hours, then continue (see above). |
@@ -239,7 +252,8 @@ Pick **one** of these:
 
 ## Privacy
 
-- The tool runs **only inside your own Google account**, as you.
-- It reads your spreadsheet and your Gmail draft, sends the emails from your Gmail, and (if you choose) writes results back into your sheet.
-- It does **not** send your data to the developer or to any other company, and it stores nothing outside your own Google account.
+- The tool runs **as you, from your own Google account**. It reads your spreadsheet and your Gmail draft, sends the emails from your Gmail, and (if you choose) writes results back into your sheet.
+- The current code is public in this repo, and it does **not** send your data to the developer or any other company.
+- Google keeps basic **run logs** in the developer's Google project. These can include your email address, your draft's subject, your sheet name and column names, and a recipient's email address.
+- The developer can change the tool's code later. The code is public here, so anyone can check it.
 - You can remove its access at any time at <https://myaccount.google.com/permissions> (look for **NGO Mailer**).

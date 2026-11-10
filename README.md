@@ -20,7 +20,9 @@ If you use the **tejit-np-plugin** with your AI assistant, ask it to help you in
    - first column: the folder name in backticks,
    - second: one plain sentence,
    - third: a link to its `INSTALLATION_GUIDE.md`,
-   - fourth: a link to open the tool (or `—` if there is none).
+   - fourth: an `https://` link to open the tool (or `—` if there is none).
+   Keep the 4 columns and the heading `Automations` unchanged.
+4. Every `INSTALLATION_GUIDE.md` must have a **What you need** section (the plugin reads it) and an **Open the tool** link that is an `https://` link.
 
 The tejit-np-plugin `install-automation` skill reads this table from
 <https://raw.githubusercontent.com/tejitpabari99/tejit-np-auto/main/README.md>, so a new row shows up for plugin users without a plugin update.
