@@ -101,3 +101,44 @@ test('each batch gets its own run id', () => {
   const b = startBatch(1); b.run.state.ok({ success: true });
   assert.notStrictEqual(reports(a)[0].args[3], reports(b)[0].args[3]);
 });
+
+test('double-click Send/Test: only one saveOrganization and one downstream call', () => {
+  let h = loadIndexScript({ values: { ...SEL, orgName: 'Acme' } });
+  h.ctx.startSending(); h.ctx.startSending();
+  assert.strictEqual(names(h).filter(n => n === 'saveOrganization').length, 1);
+  assert.strictEqual(h.el('sendBtn').disabled, true);
+  assert.strictEqual(h.el('testBtn').disabled, true);
+  h.run.state.ok({ org: 'Acme' });
+  h.ctx.startSending(); // click after save, flow in progress
+  assert.deepStrictEqual(names(h), ['saveOrganization', 'sendEmailBatch']);
+
+  h = loadIndexScript({ values: { ...SEL, orgName: 'Acme' } });
+  h.ctx.sendTest(); h.ctx.sendTest();
+  assert.strictEqual(names(h).filter(n => n === 'saveOrganization').length, 1);
+  h.run.state.ok({ org: 'Acme' });
+  h.ctx.sendTest();
+  assert.deepStrictEqual(names(h), ['saveOrganization', 'sendTestEmail']);
+});
+
+test('save failure re-enables both buttons', () => {
+  for (const fn of ['sendTest', 'startSending']) {
+    const h = loadIndexScript({ values: { ...SEL, orgName: 'Acme' } });
+    h.ctx[fn]();
+    assert.strictEqual(h.el('sendBtn').disabled, true);
+    h.run.state.fail({ message: 'nope' });
+    assert.strictEqual(h.el('sendBtn').disabled, false);
+    assert.strictEqual(h.el('testBtn').disabled, false);
+    h.ctx[fn](); // can retry
+    assert.strictEqual(names(h).filter(n => n === 'saveOrganization').length, 2);
+  }
+});
+
+test('confirm-cancel re-enables both buttons', () => {
+  const h = loadIndexScript({ values: { ...SEL, orgName: 'Acme' } });
+  h.ctx.confirm = () => false;
+  h.ctx.startSending();
+  h.run.state.ok({ org: 'Acme' });
+  assert.deepStrictEqual(names(h), ['saveOrganization']);
+  assert.strictEqual(h.el('sendBtn').disabled, false);
+  assert.strictEqual(h.el('testBtn').disabled, false);
+});

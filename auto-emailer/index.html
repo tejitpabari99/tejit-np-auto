@@ -372,18 +372,30 @@
     }
 
     // Validate + save the org name first; run onSaved only after the save succeeds
+    let orgSaving = false;
+    function setFlowButtons(disabled) {
+      document.getElementById('sendBtn').disabled = disabled;
+      document.getElementById('testBtn').disabled = disabled;
+    }
     function saveOrgThen(onSaved) {
+      if (orgSaving || document.getElementById('sendBtn').disabled || document.getElementById('testBtn').disabled) return;
       const org = cleanOrgName(document.getElementById('orgName').value);
       if (!org) {
         alert("Please enter your organization's name (1-100 characters, not an email address).");
         return;
       }
+      orgSaving = true;
+      setFlowButtons(true);
       google.script.run
         .withSuccessHandler(res => {
+          orgSaving = false;
+          setFlowButtons(false); // the flow re-disables its own button once validated/confirmed
           if (res && res.org) document.getElementById('orgName').value = res.org;
           onSaved();
         })
         .withFailureHandler(err => {
+          orgSaving = false;
+          setFlowButtons(false);
           alert((err && err.message) || 'Could not save the organization name.');
         })
         .saveOrganization(org);
