@@ -47,6 +47,7 @@ If you have more people than that, send in batches over several days. See [Advan
 4. Make sure you have a column with **email addresses**.
 5. Put one person per row, starting from row 2.
 6. Your list can be on **any tab** of the spreadsheet. You pick the tab in the dashboard (see Step 5). If you do not pick one, the tool uses the first tab.
+7. Text in cells is shown as **plain text** in the email. Links or formatting typed into cells will not become clickable or bold. Put links and formatting in the Gmail draft instead.
 
 > **Important:** The file must be a real **Google Sheet**, not an uploaded Excel (`.xlsx`) or `.csv` file.
 > If your file name shows a green `.XLSX` badge, open it and click **File → Save as Google Sheets**. Use the new copy.
@@ -250,6 +251,7 @@ After adding or changing columns, **refresh the tool's page** and pick your spre
 | A `{{...}}` came out blank in the email. | The name inside the brackets does not match a column name. Check spelling and spaces against row 1 of your sheet, and remove any spaces just inside the brackets. Also check that cell is not empty for that person. If it is in the **subject**, the same `{{...}}` must also appear in the email body. |
 | "Tab ... not found in this spreadsheet". | The tab was renamed or deleted after you picked it. Refresh the page, pick the spreadsheet again, then pick the tab. |
 | "No email address" in the error column. | That person's email cell is empty. Fill it in, then continue (see above). |
+| "Invalid email address (must be one address)". | Each email cell must contain exactly one email address. Remove extra addresses, commas, semicolons or spaces. |
 | "Invalid conditional column value". | The Conditional Column must contain only TRUE, FALSE or nothing. Fix the odd cell, or pick a different column. |
 | Emails stopped partway / quota or limit error. | You probably reached Google's daily limit (about 100 personal, 1,500 Workspace). Wait 24 hours, then continue (see above). |
 | "Authorization required" or a permission error. | Open the tool link again and repeat [Step 4](#step-4--give-permission-first-time-only). Make sure **Select all** was ticked. |

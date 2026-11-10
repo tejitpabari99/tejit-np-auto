@@ -446,15 +446,37 @@ function prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName) {
  * @return {object} message replaced with data
  */
 function fillInTemplateFromObject_(template, data) {
-  // We have two templates one for plain text and the html body
-  // Stringifying the object means we can do a global replace
-  let template_string = JSON.stringify(template);
+  // Subject/text get raw cell values; html gets HTML-escaped values (no injection).
+  const fill = (part, transform) => {
+    let template_string = JSON.stringify(part);
+    template_string = template_string.replace(/{{[^{}]+}}/g, (key) => {
+      return escapeData_(transform(String(data[key.replace(/[{}]+/g, "")] || "")));
+    });
+    return JSON.parse(template_string);
+  };
+  const plain = fill({ subject: template.subject, text: template.text }, (v) => v);
+  const htmlPart = fill({ html: template.html }, escapeHtmlValue_);
+  return Object.assign({}, template, plain, { html: htmlPart.html });
+}
 
-  // Token replacement
-  template_string = template_string.replace(/{{[^{}]+}}/g, (key) => {
-    return escapeData_(data[key.replace(/[{}]+/g, "")] || "");
-  });
-  return JSON.parse(template_string);
+/**
+ * HTML-escape a cell value for the html body and turn newlines into <br>
+ */
+function escapeHtmlValue_(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/\r\n|\r|\n/g, "<br>");
+}
+
+/**
+ * True only for exactly one plain email address (no list separators, spaces, <>)
+ */
+function isValidSingleEmail_(addr) {
+  return /^[^\s,;<>"]+@[^\s,;<>"]+\.[^\s,;<>"]+$/.test(String(addr || '').trim());
 }
 
 /**
@@ -679,8 +701,16 @@ function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1, sheetN
           continue;
         }
 
+        if (!isValidSingleEmail_(emailData.to)) {
+          console.log(`Code.gs: Skipping row ${sheetRowNumber} - invalid email address`);
+          sheet.getRange(sheetRowNumber, sentColIndex).setValue(false);
+          sheet.getRange(sheetRowNumber, errorColIndex).setValue("Invalid email address (must be one address)");
+          consecutiveErrors++;
+          continue;
+        }
+
         // Send the email
-        GmailApp.sendEmail(emailData.to, emailData.subject, emailData.text, {
+        GmailApp.sendEmail(emailData.to.trim(), emailData.subject, emailData.text, {
           htmlBody: emailData.html,
           attachments: emailData.attachments,
           inlineImages: emailData.inlineImages
@@ -998,11 +1028,25 @@ function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIn
       return { success: false, error: "No email address" };
     }
 
+    if (!isValidSingleEmail_(emailData.to)) {
+      console.warn(`Code.gs: Invalid email address in row ${rowIndex}`);
+      if (storeResults && sentColIndex && errorColIndex) {
+        try {
+          sheet.getRange(sheetRowNumber, sentColIndex).setValue(false);
+          sheet.getRange(sheetRowNumber, errorColIndex).setValue("Invalid email address (must be one address)");
+          SpreadsheetApp.flush();
+        } catch (sheetError) {
+          console.error(`Code.gs: Error updating sheet for row ${rowIndex} - ${sheetError.message}`);
+        }
+      }
+      return { success: false, error: "Invalid email address (must be one address)" };
+    }
+
     // Send the email
     console.log(`Code.gs: Sending email for row ${rowIndex}`);
 
     try {
-      GmailApp.sendEmail(emailData.to, emailData.subject, emailData.text, {
+      GmailApp.sendEmail(emailData.to.trim(), emailData.subject, emailData.text, {
         htmlBody: emailData.html,
         attachments: emailData.attachments,
         inlineImages: emailData.inlineImages
