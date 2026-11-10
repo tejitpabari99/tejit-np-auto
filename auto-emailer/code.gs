@@ -1,4 +1,100 @@
 const VERSION = "0.1.1";
+const PING_URL_ = 'https://ping.tejitpabari.com/ping';
+const MAX_COUNT_ = 5000;
+const USAGE_STEPS_ = ['load_sheet', 'load_tab', 'load_draft', 'send'];
+const USAGE_REASONS_ = ['no_access', 'not_found', 'quota', 'bad_input', 'other'];
+
+/**
+ * Maps an error to a coarse reason category. The message is only inspected
+ * locally and is never sent anywhere.
+ */
+function classifyReason_(error) {
+  const msg = String(error && error.message !== undefined ? error.message : (error || '')).toLowerCase();
+  if (/quota|too many times|limit exceeded/.test(msg)) return 'quota';
+  if (/permission|authoriz|access denied|not have access/.test(msg)) return 'no_access';
+  if (/not found|deleted|unable to open/.test(msg)) return 'not_found';
+  if (/invalid|required|exceeds|must be|no data/.test(msg)) return 'bad_input';
+  return 'other';
+}
+
+function randomChars_(n) {
+  return Utilities.getUuid().replace(/-/g, '').toLowerCase().slice(0, n);
+}
+
+function clampCount_(v) {
+  const num = Number(v);
+  if (v === null || v === '' || typeof v === 'boolean' || !isFinite(num)) return null;
+  return Math.max(0, Math.min(MAX_COUNT_, Math.floor(num)));
+}
+
+/**
+ * Returns the stored anonymous uid, creating it once (u_ + 8 hex) if missing or malformed.
+ */
+function getOrCreateUid_(props) {
+  const existing = props.getProperty('usage_uid');
+  if (existing && /^u_[0-9a-f]{8}$/.test(existing)) return existing;
+  const uid = 'u_' + randomChars_(8);
+  props.setProperty('usage_uid', uid);
+  return uid;
+}
+
+/**
+ * Sends one anonymous usage ping. PII firewall: `fields` is an allowlist,
+ * `extra` only accepts x_ keys with numeric/boolean/safe-token values.
+ * Never throws and never logs the URL.
+ */
+function logUsage_(event, fields, extra) {
+  try {
+    if (typeof event !== 'string' || !/^[a-z0-9_]{1,50}$/.test(event)) return;
+    fields = fields || {};
+    extra = extra || {};
+    const props = PropertiesService.getUserProperties();
+    const pairs = [
+      ['tool_type', 'script'],
+      ['tool_name', 'auto-emailer'],
+      ['event', event],
+      ['v', VERSION],
+      ['origin', 'google_script']
+    ];
+    const org = props.getProperty('usage_org');
+    if (org) pairs.push(['org', org]);
+    pairs.push(['uid', getOrCreateUid_(props)]);
+
+    if (fields.mode === 'test' || fields.mode === 'prod') pairs.push(['mode', fields.mode]);
+    ['n', 'ok', 'fail'].forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(fields, k)) {
+        const c = clampCount_(fields[k]);
+        if (c !== null) pairs.push([k, String(c)]);
+      }
+    });
+    if (USAGE_STEPS_.indexOf(fields.step) !== -1) pairs.push(['step', fields.step]);
+    if (Object.prototype.hasOwnProperty.call(fields, 'reason')) {
+      pairs.push(['reason', USAGE_REASONS_.indexOf(fields.reason) !== -1 ? fields.reason : 'other']);
+    }
+
+    let run = null;
+    Object.keys(extra).forEach(k => {
+      if (!/^x_[a-z0-9_]{1,28}$/.test(k)) return;
+      const v = extra[k];
+      if (k === 'x_run') {
+        if (typeof v === 'string' && /^[a-z0-9]{8,32}$/.test(v)) run = v;
+        return;
+      }
+      let str = null;
+      if (typeof v === 'number' && isFinite(v)) str = String(v);
+      else if (typeof v === 'boolean') str = String(v);
+      else if (typeof v === 'string' && /^[a-z0-9_]{1,30}$/.test(v)) str = v;
+      if (str !== null && str.indexOf('@') === -1) pairs.push([k, str]);
+    });
+    pairs.push(['x_run', run || randomChars_(12)]);
+    pairs.push(['t', randomChars_(8)]);
+
+    const url = PING_URL_ + '?' + pairs.map(p => encodeURIComponent(p[0]) + '=' + encodeURIComponent(p[1])).join('&');
+    UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  } catch (e) {
+    console.warn('usage ping failed');
+  }
+}
 
 /**
  * Serves the HTML frontend.
