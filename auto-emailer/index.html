@@ -391,6 +391,7 @@
 
       google.script.run
         .withSuccessHandler(function(tabs) {
+          if (sheetId !== currentSheetId) return; // stale response: another spreadsheet was selected
           if (!tabs || tabs.length === 0) {
             tabSelect.innerHTML = '<option value="">No tabs found</option>';
             return;
@@ -400,6 +401,7 @@
           loadPreviewData(sheetId, tabs[0].name);
         })
         .withFailureHandler(function(err) {
+          if (sheetId !== currentSheetId) return; // stale response
           console.error(`Frontend: ERROR loading tabs - ${err.message}`);
           tabSelect.innerHTML = '<option value="">Error loading tabs</option>';
           document.getElementById('previewDataTable').innerHTML =
@@ -423,6 +425,11 @@
       document.getElementById('tabSelect').innerHTML = '<option value="">-- Select a spreadsheet first --</option>';
     }
 
+    // True when the sheet/tab a response was requested for is no longer the current selection
+    function isStalePreview(sheetId, sheetName) {
+      return sheetId !== currentSheetId || sheetName !== document.getElementById('tabSelect').value;
+    }
+
     // Load preview data when sheet (and tab) is selected
     function loadPreviewData(sheetId, sheetName) {
       console.log(`Frontend: Loading preview data for sheet: ${sheetId}, tab: ${sheetName}`);
@@ -432,6 +439,7 @@
 
       google.script.run
         .withSuccessHandler(function(data) {
+          if (isStalePreview(sheetId, sheetName)) return; // stale response
           console.log("Frontend: Preview data received successfully");
           console.log(`Frontend: Data structure -`, data);
 
@@ -457,6 +465,7 @@
           }
         })
         .withFailureHandler(function(err) {
+          if (isStalePreview(sheetId, sheetName)) return; // stale response
           console.error("Frontend: ERROR loading preview data -", err);
           console.error(`Frontend: Error message - ${err.message}`);
 

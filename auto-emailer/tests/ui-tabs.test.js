@@ -25,6 +25,7 @@ test('buildTabOptionsHtml lists tabs', () => {
 
 test('loadTabs fills dropdown, selects first tab, loads preview with that tab', () => {
   const { ctx, run, el } = loadIndexScript();
+  vm.runInContext("currentSheetId = 'S1'", ctx);
   ctx.loadTabs('S1');
   assert.deepStrictEqual(run.state.calls[0], { name: 'getSheetTabs', args: ['S1'] });
   run.state.ok([{ name: 'Donors', index: 0 }, { name: 'Vols', index: 1 }]);
