@@ -1,3 +1,5 @@
+const VERSION = "0.1.1";
+
 /**
  * Serves the HTML frontend.
  */

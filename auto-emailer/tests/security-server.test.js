@@ -60,9 +60,9 @@ test('errors stay useful: missing draft error still names the subject to the use
   assert.throws(() => ctx.getEmailPreview('S1', 'Nope', 'Email', 'Donors'), /Draft with subject "Nope" not found/);
 });
 
-test('appsscript.json: unused scope and Drive advanced service removed, others kept', () => {
+test('appsscript.json: external_request scope present, Drive advanced service removed, others kept', () => {
   const m = JSON.parse(fs.readFileSync(path.join(ROOT, 'appsscript.json'), 'utf8'));
-  assert.ok(!m.oauthScopes.includes('https://www.googleapis.com/auth/script.external_request'));
+  assert.ok(m.oauthScopes.includes('https://www.googleapis.com/auth/script.external_request'));
   assert.ok(!(m.dependencies && m.dependencies.enabledAdvancedServices && m.dependencies.enabledAdvancedServices.length));
   for (const s of ['drive.readonly', 'gmail.readonly', 'gmail.send', 'spreadsheets', 'userinfo.email']) {
     assert.ok(m.oauthScopes.includes('https://www.googleapis.com/auth/' + s), s);
