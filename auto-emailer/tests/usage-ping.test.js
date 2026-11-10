@@ -233,3 +233,109 @@ test('send fns work when org is set; signatures unchanged', () => {
   assert.strictEqual(sent.length, 1);
   assert.ok(ctx.sendEmailBatch('S1', 'Hello', 'Email', 1, null, true, '', 'Donors').totalRows >= 1);
 });
+
+// ---- Task 4: events ----
+const fx = (opts = {}) => sendFixture({ props: { usage_org: 'Red Cross', usage_uid: UID }, userEmail: 'staff.private@example.org', ...opts });
+
+test('sendTestEmail pings one batch_done mode=test n=1 ok=1 fail=0 with server run id', () => {
+  const { ctx, fetches } = fx();
+  assert.strictEqual(ctx.sendTestEmail('S1', 'Hello', 'Email', 'Donors').success, true);
+  assert.strictEqual(fetches.length, 1);
+  const q = parse(fetches[0].url);
+  assert.strictEqual(q.event, 'batch_done');
+  assert.strictEqual(q.mode, 'test'); assert.strictEqual(q.n, '1'); assert.strictEqual(q.ok, '1'); assert.strictEqual(q.fail, '0');
+  assert.match(q.x_run, /^[a-z0-9]{12}$/);
+  assert.ok(!('x_stopped' in q));
+});
+
+test('sendTestEmail still returns success when the ping fetch throws', () => {
+  const { ctx, sent } = fx({ fetchThrows: true });
+  const r = ctx.sendTestEmail('S1', 'Hello', 'Email', 'Donors');
+  assert.strictEqual(r.success, true);
+  assert.strictEqual(sent.length, 1);
+});
+
+test('failed sendTestEmail sends step_failed(send), not batch_done, and rethrows', () => {
+  const { ctx, fetches } = fx();
+  assert.throws(() => ctx.sendTestEmail('S1', 'No such draft', 'Email', 'Donors'), /Failed to send test email/);
+  assert.strictEqual(fetches.length, 1);
+  const q = parse(fetches[0].url);
+  assert.strictEqual(q.event, 'step_failed'); assert.strictEqual(q.step, 'send'); assert.strictEqual(q.reason, 'not_found');
+});
+
+test('reportBatch(8,2,true,run) sends prod batch_done with stopped flag and given run id', () => {
+  const { ctx, fetches } = fx();
+  ctx.reportBatch(8, 2, true, 'abcd1234efgh');
+  assert.strictEqual(fetches.length, 1);
+  const u = fetches[0].url;
+  assert.ok(u.includes('n=10&ok=8&fail=2'), u);
+  const q = parse(u);
+  assert.strictEqual(q.event, 'batch_done'); assert.strictEqual(q.mode, 'prod');
+  assert.strictEqual(q.x_stopped, '1'); assert.strictEqual(q.x_run, 'abcd1234efgh');
+});
+
+test('reportBatch not stopped omits x_stopped; garbage/negative clamped; bad run id replaced; >5000 clamped', () => {
+  const { ctx, fetches } = fx();
+  ctx.reportBatch(3, 0, false, 'abcd1234efgh');
+  assert.ok(!('x_stopped' in parse(fetches[0].url)));
+  ctx.reportBatch(-5, 'x');
+  let q = parse(fetches[1].url);
+  assert.strictEqual(q.n, '0'); assert.strictEqual(q.ok, '0'); assert.strictEqual(q.fail, '0');
+  assert.strictEqual(q.mode, 'prod'); assert.match(q.x_run, /^[a-z0-9]{12}$/);
+  assert.ok(!('x_stopped' in q));
+  ctx.reportBatch(9999, 7000, false, 'bad run id!');
+  q = parse(fetches[2].url);
+  assert.strictEqual(q.ok, '5000'); assert.strictEqual(q.fail, '5000'); assert.strictEqual(q.n, '5000');
+  assert.notStrictEqual(q.x_run, 'bad run id!'); assert.match(q.x_run, /^[a-z0-9]{12}$/);
+});
+
+test('reportBatch never throws when fetch fails and returns nothing', () => {
+  const { ctx } = fx({ fetchThrows: true });
+  assert.doesNotThrow(() => ctx.reportBatch(1, 1, false, 'abcd1234efgh'));
+});
+
+function failing(call, step, reason, mutate) {
+  const { ctx, fetches } = fx();
+  if (mutate) mutate(ctx);
+  let err;
+  try { call(ctx); } catch (e) { err = e; }
+  assert.ok(err, 'original error still thrown');
+  assert.strictEqual(fetches.length, 1, 'exactly one step_failed ping');
+  const q = parse(fetches[0].url);
+  assert.strictEqual(q.event, 'step_failed'); assert.strictEqual(q.step, step); assert.strictEqual(q.reason, reason);
+  assert.match(q.x_run, /^[a-z0-9]{12}$/);
+  return err;
+}
+
+test('step_failed per setup stage with step and classified reason; original error still thrown', () => {
+  failing(c => c.getRecentSheets(), 'load_sheet', 'quota', c => { c.DriveApp = { searchFiles: () => { throw new Error('Service invoked too many times'); } }; });
+  failing(c => c.getPreviewData('S9', 'Donors'), 'load_sheet', 'not_found');
+  failing(c => c.getSheetTabs('S9'), 'load_tab', 'not_found');
+  failing(c => c.getSheetTabs(''), 'load_tab', 'bad_input');
+  failing(c => c.getGmailDrafts(), 'load_draft', 'no_access', c => { c.GmailApp = { getDrafts: () => { throw new Error('You do not have permission'); } }; });
+  failing(c => c.getEmailPreview('S1', 'Nope', 'Email', 'Donors'), 'load_draft', 'not_found');
+  const e = failing(c => c.sendEmailBatch('S9', 'Hello', 'Email', 1, null, true, '', 'Donors'), 'send', 'not_found');
+  assert.match(e.message, /^Batch setup failed:/);
+});
+
+test('original error messages preserved when the failure ping itself fails', () => {
+  const { ctx } = fx({ fetchThrows: true });
+  assert.throws(() => ctx.getSheetTabs('S9'), /Spreadsheet not found/);
+});
+
+test('failure pings never carry the error text, subject, sheet name or email', () => {
+  const { ctx, fetches } = fx();
+  try { ctx.getEmailPreview('S1', 'Secret Subject', 'Email', 'Donors'); } catch (e) {}
+  try { ctx.getPreviewData('S1', 'Secret Tab'); } catch (e) {}
+  const all = decodeURIComponent(fetches.map(f => f.url).join('\n'));
+  for (const s of ['Secret Subject', 'Secret Tab', 'Donors', 'staff.private@example.org', 'not found']) assert.ok(!all.includes(s), s);
+});
+
+test('successful setup calls and sendSingleEmail make zero fetches; sendEmailBatch success sends none', () => {
+  const { ctx, fetches } = fx();
+  ctx.getRecentSheets(); ctx.getGmailDrafts(); ctx.getSheetTabs('S1'); ctx.getPreviewData('S1', 'Donors');
+  ctx.getEmailPreview('S1', 'Hello', 'Email', 'Donors');
+  const info = ctx.sendEmailBatch('S1', 'Hello', 'Email', 1, null, true, '', 'Donors');
+  ctx.sendSingleEmail('S1', 'Hello', 'Email', 1, info.sentColIndex, info.errorColIndex, true, info.conditionalColIndex, 'Donors');
+  assert.strictEqual(fetches.length, 0);
+});

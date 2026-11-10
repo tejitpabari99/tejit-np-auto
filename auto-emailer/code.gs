@@ -194,6 +194,7 @@ function getRecentSheets() {
     return sheets;
   } catch (error) {
     console.error(`Code.gs: ERROR in getRecentSheets - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_sheet', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to fetch spreadsheets: ${error.message}. Please ensure you have granted Drive permissions.`);
   }
@@ -232,6 +233,7 @@ function getGmailDrafts() {
     return draftsList;
   } catch (error) {
     console.error(`Code.gs: ERROR in getGmailDrafts - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_draft', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to fetch Gmail drafts: ${error.message}. Please ensure you have granted Gmail permissions.`);
   }
@@ -252,6 +254,7 @@ function getSheetTabs(sheetId) {
     return tabs;
   } catch (error) {
     console.error(`Code.gs: ERROR in getSheetTabs - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_tab', reason: classifyReason_(error) }, {});
     if (error.message.includes('perhaps it was deleted')) {
       throw new Error(`Spreadsheet not found. The file may have been deleted or you may not have permission to access it.`);
     }
@@ -321,6 +324,7 @@ function getPreviewData(sheetId, sheetName) {
     };
   } catch (error) {
     console.error(`Code.gs: ERROR in getPreviewData - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_sheet', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
 
     // Provide more specific error messages based on error type
@@ -693,6 +697,7 @@ function getEmailPreview(sheetId, draftSubject, emailColumn, sheetName) {
     };
   } catch (error) {
     console.error(`Code.gs: ERROR in getEmailPreview - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_draft', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to generate email preview: ${error.message}`);
   }
@@ -921,10 +926,12 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
     });
 
     console.log("Code.gs: Test email sent successfully");
+    logUsage_('batch_done', { mode: 'test', n: 1, ok: 1, fail: 0 }, {});
 
     return { success: true, sentTo: userEmail };
   } catch (error) {
     console.error(`Code.gs: ERROR in sendTestEmail - ${error.message}`);
+    logUsage_('step_failed', { step: 'send', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to send test email: ${error.message}`);
   }
@@ -1088,9 +1095,26 @@ function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitE
 
   } catch (error) {
     console.error(`Code.gs: ERROR in sendEmailBatch - ${error.message}`);
+    logUsage_('step_failed', { step: 'send', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     console.log("Code.gs: ==================== BATCH SETUP FAILED ====================");
     throw new Error(`Batch setup failed: ${error.message}`);
+  }
+}
+
+/**
+ * Called once by the client when a send loop finishes or stops. Sends one
+ * anonymous aggregate ping; inputs are clamped and never trusted.
+ */
+function reportBatch(ok, fail, stopped, runId) {
+  try {
+    const okN = clampCount_(ok) || 0;
+    const failN = clampCount_(fail) || 0;
+    const extra = { x_run: runId };
+    if (stopped === true || stopped === 1) extra.x_stopped = 1;
+    logUsage_('batch_done', { mode: 'prod', n: okN + failN, ok: okN, fail: failN }, extra);
+  } catch (e) {
+    console.warn('usage ping failed');
   }
 }
 
