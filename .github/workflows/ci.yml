@@ -16,3 +16,5 @@ jobs:
         run: |
           set -e
           for f in $(git ls-files '*.json'); do python3 -m json.tool "$f" > /dev/null; echo "ok $f"; done
+      - name: Run auto-emailer tests
+        run: node --test auto-emailer/tests/*.test.js

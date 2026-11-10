@@ -64,10 +64,23 @@
         </select>
       </div>
 
-      <!-- 2. Draft Selection -->
+      <!-- 2. Tab Selection -->
       <div class="mb-4">
         <label class="form-label d-flex align-items-center">
-          2. Select Gmail Draft
+          2. Select Tab
+          <i class="bi bi-question-circle-fill help-icon"
+             data-bs-toggle="tooltip"
+             title="Choose which tab (sheet) inside the spreadsheet has your contacts"></i>
+        </label>
+        <select id="tabSelect" class="form-select" onchange="onTabChange()">
+          <option value="">-- Select a spreadsheet first --</option>
+        </select>
+      </div>
+
+      <!-- 3. Draft Selection -->
+      <div class="mb-4">
+        <label class="form-label d-flex align-items-center">
+          3. Select Gmail Draft
           <i class="bi bi-question-circle-fill help-icon"
              data-bs-toggle="tooltip"
              title="Choose the draft email template to use"></i>
@@ -77,10 +90,10 @@
         </select>
       </div>
 
-      <!-- 3. Email Column Selection -->
+      <!-- 4. Email Column Selection -->
       <div class="mb-4">
         <label class="form-label d-flex align-items-center">
-          3. Column to Use for Email
+          4. Column to Use for Email
           <i class="bi bi-question-circle-fill help-icon"
              data-bs-toggle="tooltip"
              title="Select the column that contains recipient email addresses"></i>
@@ -240,8 +253,9 @@
             currentSheetId = $(this).val();
             console.log(`Frontend: Spreadsheet selected - ${currentSheetId}`);
             if (currentSheetId) {
-              loadPreviewData(currentSheetId);
+              loadTabs(currentSheetId);
             } else {
+              clearTabs();
               clearPreviewData();
             }
           });
@@ -317,9 +331,54 @@
       icon.classList.toggle('rotated');
     }
 
-    // Load preview data when sheet is selected
-    function loadPreviewData(sheetId) {
-      console.log(`Frontend: Loading preview data for sheet: ${sheetId}`);
+    // Build <option> list for the tab dropdown
+    function buildTabOptionsHtml(tabs) {
+      return tabs.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+    }
+
+    // Load the tabs of the chosen spreadsheet, select the first one, then load its preview
+    function loadTabs(sheetId) {
+      const tabSelect = document.getElementById('tabSelect');
+      tabSelect.innerHTML = '<option value="">Loading tabs...</option>';
+      clearPreviewData();
+
+      google.script.run
+        .withSuccessHandler(function(tabs) {
+          if (!tabs || tabs.length === 0) {
+            tabSelect.innerHTML = '<option value="">No tabs found</option>';
+            return;
+          }
+          tabSelect.innerHTML = buildTabOptionsHtml(tabs);
+          tabSelect.value = tabs[0].name;
+          loadPreviewData(sheetId, tabs[0].name);
+        })
+        .withFailureHandler(function(err) {
+          console.error(`Frontend: ERROR loading tabs - ${err.message}`);
+          tabSelect.innerHTML = '<option value="">Error loading tabs</option>';
+          document.getElementById('previewDataTable').innerHTML =
+            `<p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Error loading tabs:</strong> ${err.message}</p>`;
+        })
+        .getSheetTabs(sheetId);
+    }
+
+    // Reload preview and column dropdowns when a different tab is chosen
+    function onTabChange() {
+      const sheetName = document.getElementById('tabSelect').value;
+      if (currentSheetId && sheetName) {
+        loadPreviewData(currentSheetId, sheetName);
+      } else {
+        clearPreviewData();
+      }
+    }
+
+    // Clear the tab dropdown
+    function clearTabs() {
+      document.getElementById('tabSelect').innerHTML = '<option value="">-- Select a spreadsheet first --</option>';
+    }
+
+    // Load preview data when sheet (and tab) is selected
+    function loadPreviewData(sheetId, sheetName) {
+      console.log(`Frontend: Loading preview data for sheet: ${sheetId}, tab: ${sheetName}`);
       console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
 
       document.getElementById('previewDataTable').innerHTML = '<p class="text-muted"><span class="spinner-border spinner-border-sm"></span> Loading data...</p>';
@@ -362,7 +421,7 @@
           // Clear column dropdowns when there's an error
           document.getElementById('emailColumn').innerHTML = '<option value="">-- Select a column --</option>';
         })
-        .getPreviewData(sheetId);
+        .getPreviewData(sheetId, sheetName);
     }
 
     // Display preview data in a table
@@ -433,13 +492,14 @@
       const testBtn = document.getElementById('testBtn');
       const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
       const draftSubject = document.getElementById('draftSelect').value;
+      const sheetName = document.getElementById('tabSelect').value;
       const emailColumn = document.getElementById('emailColumn').value;
 
-      console.log(`Frontend: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
+      console.log(`Frontend: Parameters - sheetId: ${sheetId}, tab: ${sheetName}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
 
-      if (!sheetId || !draftSubject || !emailColumn) {
+      if (!sheetId || !sheetName || !draftSubject || !emailColumn) {
         console.warn("Frontend: Missing required parameters for test email");
-        alert('Please select a spreadsheet, draft, and email column before sending a test email.');
+        alert('Please select a spreadsheet, tab, draft, and email column before sending a test email.');
         return;
       }
 
@@ -473,7 +533,7 @@
 
           console.log("Frontend: ========== TEST EMAIL FAILED ==========");
         })
-        .sendTestEmail(sheetId, draftSubject, emailColumn);
+        .sendTestEmail(sheetId, draftSubject, emailColumn, sheetName);
     }
 
     // Start sending emails with progress tracking
@@ -486,6 +546,7 @@
       const btn = document.getElementById('sendBtn');
       const sheetId = currentSheetId || document.getElementById('sheetSelect').value;
       const draftSubject = document.getElementById('draftSelect').value;
+      const sheetName = document.getElementById('tabSelect').value;
       const emailColumn = document.getElementById('emailColumn').value;
       const startRowInput = document.getElementById('startRow').value;
       const startRow = startRowInput ? parseInt(startRowInput) : 1;
@@ -498,9 +559,9 @@
       console.log(`Frontend: Settings - startRow: ${startRow}, limitEmails: ${limitEmails}, storeResults: ${storeResults}, conditionalColumn: ${conditionalColumn}`);
 
       // Validation
-      if (!sheetId || !draftSubject || !emailColumn) {
+      if (!sheetId || !sheetName || !draftSubject || !emailColumn) {
         console.warn("Frontend: Missing required parameters");
-        alert('Please select a spreadsheet, draft, and specify the email column before sending.');
+        alert('Please select a spreadsheet, tab, draft, and specify the email column before sending.');
         return;
       }
 
@@ -541,7 +602,7 @@
           console.log(`Frontend: Batch info -`, batchInfo);
           console.log(`Frontend: Will send ${batchInfo.totalRows} emails`);
 
-          sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults);
+          sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults, sheetName);
         })
         .withFailureHandler(function(err) {
           console.error("Frontend: ERROR initializing batch -", err);
@@ -555,11 +616,11 @@
 
           console.log("Frontend: ========== BATCH INITIALIZATION FAILED ==========");
         })
-        .sendEmailBatch(sheetId, draftSubject, emailColumn, startRow, limitEmails, storeResults, conditionalColumn);
+        .sendEmailBatch(sheetId, draftSubject, emailColumn, startRow, limitEmails, storeResults, conditionalColumn, sheetName);
     }
 
     // Send emails one by one with progress updates
-    function sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults) {
+    function sendEmailsSequentially(sheetId, draftSubject, emailColumn, batchInfo, btn, storeResults, sheetName) {
       console.log("Frontend: Starting sequential email sending");
       console.log(`Frontend: Total emails to send: ${batchInfo.totalRows}`);
       console.log(`Frontend: Eligible row indices:`, batchInfo.eligibleRowIndices);
@@ -672,7 +733,7 @@
             setTimeout(sendNext, 100);
           })
           .sendSingleEmail(sheetId, draftSubject, emailColumn, currentRow,
-                          batchInfo.sentColIndex, batchInfo.errorColIndex, storeResults, batchInfo.conditionalColIndex);
+                          batchInfo.sentColIndex, batchInfo.errorColIndex, storeResults, batchInfo.conditionalColIndex, sheetName);
       }
 
       // Start sending

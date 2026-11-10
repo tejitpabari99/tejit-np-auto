@@ -118,9 +118,49 @@ function getOAuthToken() {
 }
 
 /**
- * Get preview data (first 5 rows) from a spreadsheet
+ * Lists all tabs (sheets) inside a spreadsheet.
+ * @return {Array<{name: string, index: number}>}
  */
-function getPreviewData(sheetId) {
+function getSheetTabs(sheetId) {
+  try {
+    if (!sheetId || sheetId.trim() === '') {
+      throw new Error("Sheet ID is required");
+    }
+    const spreadsheet = SpreadsheetApp.openById(sheetId);
+    const tabs = spreadsheet.getSheets().map((s, i) => ({ name: s.getName(), index: i }));
+    console.log(`Code.gs: Found ${tabs.length} tabs`);
+    return tabs;
+  } catch (error) {
+    console.error(`Code.gs: ERROR in getSheetTabs - ${error.message}`);
+    if (error.message.includes('perhaps it was deleted')) {
+      throw new Error(`Spreadsheet not found. The file may have been deleted or you may not have permission to access it.`);
+    }
+    throw new Error(`Failed to get tabs: ${error.message}`);
+  }
+}
+
+/**
+ * Returns the named tab, or the first tab when sheetName is empty/undefined.
+ */
+function getTargetSheet_(spreadsheet, sheetName) {
+  const sheets = spreadsheet.getSheets();
+  if (!sheets || sheets.length === 0) {
+    throw new Error("The spreadsheet contains no sheets");
+  }
+  if (!sheetName || String(sheetName).trim() === '') {
+    return sheets[0];
+  }
+  const found = sheets.find(s => s.getName() === sheetName);
+  if (!found) {
+    throw new Error(`Tab "${sheetName}" not found in this spreadsheet.`);
+  }
+  return found;
+}
+
+/**
+ * Get preview data (first 5 rows) from a spreadsheet tab
+ */
+function getPreviewData(sheetId, sheetName) {
   console.log(`Code.gs: Getting preview data for sheet ${sheetId}`);
   console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
 
@@ -134,14 +174,8 @@ function getPreviewData(sheetId) {
     const spreadsheet = SpreadsheetApp.openById(sheetId);
     console.log(`Code.gs: Spreadsheet opened: ${spreadsheet.getName()}`);
 
-    const sheets = spreadsheet.getSheets();
-    if (!sheets || sheets.length === 0) {
-      console.error("Code.gs: No sheets found in spreadsheet");
-      throw new Error("The spreadsheet contains no sheets");
-    }
-
-    const sheet = sheets[0];
-    console.log(`Code.gs: Using first sheet: ${sheet.getName()}`);
+    const sheet = getTargetSheet_(spreadsheet, sheetName);
+    console.log(`Code.gs: Using sheet: ${sheet.getName()}`);
 
     const data = sheet.getDataRange().getDisplayValues();
     console.log(`Code.gs: Total rows in sheet: ${data.length}`);
@@ -358,7 +392,7 @@ function getGmailTemplateFromDrafts_(subject_line) {
 /**
  * Prepares email data including HTML, Attachments, and Inline Images
  */
-function prepareEmailContext(sheetId, draftSubject, emailColumn) {
+function prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName) {
   console.log(`Code.gs: Preparing email context`);
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
 
@@ -376,7 +410,7 @@ function prepareEmailContext(sheetId, draftSubject, emailColumn) {
 
     console.log("Code.gs: Opening spreadsheet");
     const spreadsheet = SpreadsheetApp.openById(sheetId);
-    const sheet = spreadsheet.getSheets()[0];
+    const sheet = getTargetSheet_(spreadsheet, sheetName);
 
     console.log("Code.gs: Getting spreadsheet data");
     const data = sheet.getDataRange().getDisplayValues();
@@ -502,14 +536,14 @@ function processEmailRow(row, emailContext) {
 /**
  * Get email preview using first row of data
  */
-function getEmailPreview(sheetId, draftSubject, emailColumn) {
+function getEmailPreview(sheetId, draftSubject, emailColumn, sheetName) {
   console.log(`Code.gs: Getting email preview`);
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
   console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
 
   try {
     console.log("Code.gs: Preparing email context");
-    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName);
 
     if (!emailContext.rows || emailContext.rows.length === 0) {
       throw new Error("No data rows available for preview");
@@ -597,13 +631,14 @@ function findColumnIndex(headers, columnIdentifier) {
  * @param {string} draftSubject - The subject of the Gmail draft
  * @param {string} emailColumn - The column containing email addresses
  * @param {number} startRow - The row number to start from (1-indexed, defaults to 1)
+ * @param {string} sheetName - Optional tab name (defaults to the first tab)
  */
-function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1) {
+function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1, sheetName) {
   console.log("Code.gs: Process and Send started");
   try {
     const spreadsheet = SpreadsheetApp.openById(sheetId);
-    const sheet = spreadsheet.getSheets()[0];
-    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    const sheet = getTargetSheet_(spreadsheet, sheetName);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName);
 
     console.log(`Code.gs: Data rows - ${emailContext.rows.length}`);
     console.log(`Code.gs: Email column index - ${emailContext.emailColIndex}`);
@@ -717,7 +752,7 @@ function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1) {
 /**
  * Send test email to current user
  */
-function sendTestEmail(sheetId, draftSubject, emailColumn) {
+function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
   console.log("Code.gs: Sending test email");
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}, draftSubject: ${draftSubject}, emailColumn: ${emailColumn}`);
 
@@ -730,7 +765,7 @@ function sendTestEmail(sheetId, draftSubject, emailColumn) {
     }
 
     console.log("Code.gs: Preparing email context for test");
-    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName);
 
     // Use the first row for the test data
     console.log("Code.gs: Processing first row for test email");
@@ -760,7 +795,7 @@ function sendTestEmail(sheetId, draftSubject, emailColumn) {
  * Send emails one at a time and report progress back to client
  * This allows for real-time progress updates in the UI
  */
-function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitEmails = null, storeResults = true, conditionalColumn = '') {
+function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitEmails = null, storeResults = true, conditionalColumn = '', sheetName) {
   console.log("Code.gs: ==================== BATCH START ====================");
   console.log("Code.gs: Send Email Batch started");
   console.log(`Code.gs: User - ${Session.getActiveUser().getEmail()}`);
@@ -769,8 +804,8 @@ function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitE
 
   try {
     const spreadsheet = SpreadsheetApp.openById(sheetId);
-    const sheet = spreadsheet.getSheets()[0];
-    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    const sheet = getTargetSheet_(spreadsheet, sheetName);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName);
 
     // Validate startRow
     console.log(`Code.gs: Validating startRow: ${startRow}`);
@@ -802,7 +837,7 @@ function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitE
     if (conditionalColumn && conditionalColumn.trim() !== '') {
       console.log(`Code.gs: Getting conditional column index for: ${conditionalColumn}`);
       try {
-        const headers = spreadsheet.getSheets()[0].getRange(1, 1, 1, spreadsheet.getSheets()[0].getLastColumn()).getValues()[0];
+        const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
         conditionalColIndex = findColumnIndex(headers, conditionalColumn);
         console.log(`Code.gs: Conditional column index: ${conditionalColIndex}`);
       } catch (condError) {
@@ -923,13 +958,13 @@ function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitE
 /**
  * Send a single email for the specified row
  */
-function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIndex, errorColIndex, storeResults = true, conditionalColIndex = null) {
+function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIndex, errorColIndex, storeResults = true, conditionalColIndex = null, sheetName) {
   console.log(`Code.gs: Sending single email for row ${rowIndex}`);
 
   try {
     const spreadsheet = SpreadsheetApp.openById(sheetId);
-    const sheet = spreadsheet.getSheets()[0];
-    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn);
+    const sheet = getTargetSheet_(spreadsheet, sheetName);
+    const emailContext = prepareEmailContext(sheetId, draftSubject, emailColumn, sheetName);
 
     const row = emailContext.rows[rowIndex - 1]; // Convert to 0-based
     const sheetRowNumber = rowIndex + 1; // +1 for header row
@@ -1027,7 +1062,7 @@ function sendSingleEmail(sheetId, draftSubject, emailColumn, rowIndex, sentColIn
     if (storeResults && sentColIndex && errorColIndex) {
       try {
         const spreadsheet = SpreadsheetApp.openById(sheetId);
-        const sheet = spreadsheet.getSheets()[0];
+        const sheet = getTargetSheet_(spreadsheet, sheetName);
         const sheetRowNumber = rowIndex + 1;
 
         console.log(`Code.gs: Updating spreadsheet - marking row ${rowIndex} as failed`);
