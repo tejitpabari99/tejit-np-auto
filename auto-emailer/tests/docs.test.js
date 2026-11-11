@@ -13,16 +13,19 @@ const TABLE = `| Automation | What it does | Guide | Open the tool |
 | \`auto-emailer\` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://go.tejitpabari.com/tejit-np-auto-emailer) |
 `;
 
-test('guide: org name box in dashboard step, placeholders present', () => {
+test('guide: org name box in dashboard step, screenshots present', () => {
   const step4 = guide.slice(guide.indexOf('## Step 4'), guide.indexOf('## Step 5'));
   assert.match(step4, /\*\*Organization name\*\*/);
   assert.match(step4, /not your email/i);
-  for (const id of ['dashboard', 'gmail-draft-variables', 'continue-allow', 'sheet-result-columns']) {
-    assert.ok(guide.includes('<!-- SCREENSHOT NEEDED: ' + id + ' -->'), id);
+  assert.ok(!guide.includes('SCREENSHOT NEEDED'));
+  for (const f of ['gmail-draft-variables.png', 'dashboard.png', 'sheet-result-columns.png']) {
+    assert.ok(guide.includes('(docs/images/' + f + ')'), f);
+    assert.ok(require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'docs', 'images', f)), f + ' exists');
   }
+  assert.ok(guide.includes('Scroll to the bottom of the screen and click **Continue**.'));
   assert.ok(!guide.includes('dashboard-overview.png'));
   assert.ok(!guide.includes('org-name-box'));
-  assert.equal((guide.match(/_\(Picture coming soon:/g) || []).length, 4);
+  assert.ok(!guide.includes('Picture coming soon'));
 });
 
 test('guide: headings the install skill reads, and short', () => {

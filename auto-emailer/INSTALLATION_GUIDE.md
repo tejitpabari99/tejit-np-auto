@@ -41,8 +41,7 @@ Dear {{Full Name}},
 - Use the column name **exactly** as in row 1, with no spaces inside the brackets: `{{Full Name}}`, not `{{ Full Name }}`.
 - A placeholder in the subject is only filled in if the same `{{...}}` is also in the body.
 - Attachments and pictures are sent to everyone.
-<!-- SCREENSHOT NEEDED: gmail-draft-variables -->
-_(Picture coming soon: a Gmail draft using `{{Full Name}}` placeholders.)_
+![A Gmail draft using {{...}} placeholders](docs/images/gmail-draft-variables.png)
 
 ## Step 3 — Open the tool and allow access (first time only)
 Open the tool link. Google shows an "unverified" warning because the tool has not paid for Google's public review. It is safe if you trust the person who shared it.
@@ -60,9 +59,7 @@ Open the tool link. Google shows an "unverified" warning because the tool has no
 4. Tick **Select all**. The tool will not work if any box is left unticked.
    ![Tick Select all](docs/images/select-all.jpg)
 
-5. Scroll down and click **Continue**.
-<!-- SCREENSHOT NEEDED: continue-allow -->
-_(Picture coming soon: the Continue button at the bottom of the permission screen.)_
+5. Scroll to the bottom of the screen and click **Continue**.
 | Google asks to… | Why |
 |---|---|
 | See your Google Drive files (read only) | To list your spreadsheets and read the one you pick. |
@@ -73,8 +70,7 @@ _(Picture coming soon: the Continue button at the bottom of the permission scree
 | Connect to an external service | Only used to send anonymous usage counts to ping.tejitpabari.com. Never your emails, drafts or sheet content. |
 
 ## Step 4 — Fill in the dashboard
-<!-- SCREENSHOT NEEDED: dashboard -->
-_(Picture coming soon: the full dashboard showing the Organization name box and the Select Tab list.)_
+![The NGO Mailer dashboard](docs/images/dashboard.png)
 
 - **Organization name** — your organization's name, not your email. Required before any test or real send. It is remembered for next time.
 - Pick your **spreadsheet**, the **tab** with your list, your **Gmail draft** (Step 2), and the **column** with email addresses.
@@ -87,8 +83,7 @@ _(Picture coming soon: the full dashboard showing the Organization name box and 
 3. **Keep the tab open until it says Complete!** Closing it or letting the computer sleep stops sending.
 
 With **Store results in spreadsheet** on (default), your tab gets new **Email Sent** and **Email Error** columns.
-<!-- SCREENSHOT NEEDED: sheet-result-columns -->
-_(Picture coming soon: the sheet with the new Email Sent and Email Error columns.)_
+![The sheet with the new Email Sent and Email Error columns](docs/images/sheet-result-columns.png)
 
 ## Advanced options
 Click **Advanced** on the dashboard. All optional.
