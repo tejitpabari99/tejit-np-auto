@@ -6,7 +6,7 @@ Free, simple automations that take repetitive work off a nonprofit team's plate.
 
 | Automation | What it does | Guide | Open the tool |
 |---|---|---|---|
-| `auto-emailer` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec) |
+| `auto-emailer` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://go.tejitpabari.com/tejit-np-auto-emailer) |
 
 Our tools send anonymous usage counts (organization name and counts only). See [Terms](TERMS.md) and [Privacy](PRIVACY.md).
 

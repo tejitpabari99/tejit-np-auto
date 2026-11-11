@@ -10,15 +10,29 @@ const readme = fs.readFileSync(path.join(ROOT, '..', 'README.md'), 'utf8');
 
 const TABLE = `| Automation | What it does | Guide | Open the tool |
 |---|---|---|---|
-| \`auto-emailer\` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec) |
+| \`auto-emailer\` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://go.tejitpabari.com/tejit-np-auto-emailer) |
 `;
 
-test('guide: org box step with screenshot placeholder', () => {
-  const step5 = guide.slice(guide.indexOf('## Step 5'), guide.indexOf('## Step 6'));
-  assert.match(step5, /\*\*Organization name\*\*/);
-  assert.match(step5, /not your email/i);
-  assert.ok(guide.includes('<!-- SCREENSHOT NEEDED: org-name-box -->'));
-  assert.match(guide, /_\(Picture coming soon[^)]*organization name[^)]*\)_/i);
+test('guide: org name box in dashboard step, screenshots present', () => {
+  const step4 = guide.slice(guide.indexOf('## Step 4'), guide.indexOf('## Step 5'));
+  assert.match(step4, /\*\*Organization name\*\*/);
+  assert.match(step4, /not your email/i);
+  assert.ok(!guide.includes('SCREENSHOT NEEDED'));
+  for (const f of ['gmail-draft-variables.png', 'dashboard.png', 'sheet-result-columns.png']) {
+    assert.ok(guide.includes('(docs/images/' + f + ')'), f);
+    assert.ok(require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'docs', 'images', f)), f + ' exists');
+  }
+  assert.ok(guide.includes('Scroll to the bottom of the screen and click **Continue**.'));
+  assert.ok(!guide.includes('dashboard-overview.png'));
+  assert.ok(!guide.includes('org-name-box'));
+  assert.ok(!guide.includes('Picture coming soon'));
+});
+
+test('guide: headings the install skill reads, and short', () => {
+  assert.match(guide, /^## What it does$/m);
+  assert.match(guide, /^## What you need$/m);
+  assert.match(guide, /^\*\*Open the tool:\*\* <https:\/\/go\.tejitpabari\.com\/tejit-np-auto-emailer>$/m);
+  assert.ok(guide.trimEnd().split('\n').length < 130);
 });
 
 test('guide: external service permission row', () => {
@@ -35,12 +49,9 @@ test('guide: privacy section is an accurate short list linking legal docs', () =
   assert.match(priv, /\]\(\.\.\/TERMS\.md\)|blob\/main\/TERMS\.md/);
 });
 
-test('guide: what-changed line and no re-authorization wording', () => {
-  const line = guide.split('\n').find(l => l.startsWith('_Updated November 2026'));
-  assert.match(line, /organization/i);
-  assert.match(line, /usage counts/i);
-  assert.match(line, /one extra permission/i);
+test('guide: no re-authorization wording', () => {
   assert.doesNotMatch(guide, /re-?authori[sz]|authori[sz]e again|approve again|allow again/i);
+  assert.doesNotMatch(guide, /_Updated November 2026/);
 });
 
 test('README: one usage-counts line with Terms/Privacy links; Automations table untouched', () => {
