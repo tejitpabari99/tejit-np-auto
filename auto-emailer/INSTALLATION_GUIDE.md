@@ -1,3 +1,4 @@
+<!-- {% raw %} -->
 # NGO Auto Emailer — Setup and Use
 
 **Open the tool:** <https://go.tejitpabari.com/tejit-np-auto-emailer>
@@ -8,6 +9,7 @@ Nothing to download. It is a web page that runs inside your own Google account.
 Sends one personal email to many people at once. You write the email once in Gmail, mark the parts that change (like `{{Full Name}}`), and the tool fills in each person's details from your Google Sheet. Emails go out from your own Gmail address.
 
 ## What you need
+
 | You need | What it means |
 |---|---|
 | A Google account | Gmail, personal or Google Workspace. |
@@ -41,25 +43,31 @@ Dear {{Full Name}},
 - Use the column name **exactly** as in row 1, with no spaces inside the brackets: `{{Full Name}}`, not `{{ Full Name }}`.
 - A placeholder in the subject is only filled in if the same `{{...}}` is also in the body.
 - Attachments and pictures are sent to everyone.
-![A Gmail draft using {{...}} placeholders](docs/images/gmail-draft-variables.png)
+
+<img src="docs/images/gmail-draft-variables.png" alt="A Gmail draft using {{...}} placeholders" width="560">
 
 ## Step 3 — Open the tool and allow access (first time only)
 Open the tool link. Google shows an "unverified" warning because the tool has not paid for Google's public review. It is safe if you trust the person who shared it.
 **Safety check:** continue only if Google shows the developer as **tejitpabari99@gmail.com**. If not, click **Back to safety**.
 
 1. Click **Review permissions**.
-   ![Click Review permissions](docs/images/review-permissions.jpg)
+
+   <img src="docs/images/review-permissions.jpg" alt="Click Review permissions" width="360">
 
 2. Click **Advanced** (small link, bottom left).
-   ![Click Advanced](docs/images/advanced-link.jpg)
+
+   <img src="docs/images/advanced-link.jpg" alt="Click Advanced" width="360">
 
 3. Click **Go to NGO Mailer (unsafe)**.
-   ![Click Go to NGO Mailer (unsafe)](docs/images/go-to-unsafe.jpg)
+
+   <img src="docs/images/go-to-unsafe.jpg" alt="Click Go to NGO Mailer (unsafe)" width="360">
 
 4. Tick **Select all**. The tool will not work if any box is left unticked.
-   ![Tick Select all](docs/images/select-all.jpg)
+
+   <img src="docs/images/select-all.jpg" alt="Tick Select all" width="360">
 
 5. Scroll to the bottom of the screen and click **Continue**.
+
 | Google asks to… | Why |
 |---|---|
 | See your Google Drive files (read only) | To list your spreadsheets and read the one you pick. |
@@ -70,24 +78,26 @@ Open the tool link. Google shows an "unverified" warning because the tool has no
 | Connect to an external service | Only used to send anonymous usage counts to ping.tejitpabari.com. Never your emails, drafts or sheet content. |
 
 ## Step 4 — Fill in the dashboard
-![The NGO Mailer dashboard](docs/images/dashboard.png)
+
+<img src="docs/images/dashboard.png" alt="The NGO Mailer dashboard" width="560">
 
 - **Organization name** — your organization's name, not your email. Required before any test or real send. It is remembered for next time.
 - Pick your **spreadsheet**, the **tab** with your list, your **Gmail draft** (Step 2), and the **column** with email addresses.
 
 ## Step 5 — Send a test, then send
-![Send Test Email button](docs/images/send-test-email.png)
 
 1. Click **Send Test Email**. One email goes **only to you**, using row 2's details (subject starts **[TEST]**). Check every `{{...}}` was replaced; if not, see [Troubleshooting](#troubleshooting).
 2. Click **Send Emails**, then **OK**.
 3. **Keep the tab open until it says Complete!** Closing it or letting the computer sleep stops sending.
 
 With **Store results in spreadsheet** on (default), your tab gets new **Email Sent** and **Email Error** columns.
-![The sheet with the new Email Sent and Email Error columns](docs/images/sheet-result-columns.png)
+
+<img src="docs/images/sheet-result-columns.png" alt="The sheet with the new Email Sent and Email Error columns" width="560">
 
 ## Advanced options
 Click **Advanced** on the dashboard. All optional.
-![Advanced options](docs/images/advanced-features.png)
+
+<img src="docs/images/advanced-features.png" alt="Advanced options" width="560">
 
 | Option | What it does |
 |---|---|
@@ -104,6 +114,7 @@ If 5 emails in a row fail, the tool stops. To continue after stopping:
 Do **not** use the newest **Email Sent** column alone as the Conditional Column. People skipped in that run are not in it, so they would be emailed again. After changing columns, refresh the page and re-pick your spreadsheet.
 
 ## Troubleshooting
+
 | Problem | What to do |
 |---|---|
 | Sheet not in the list | Only 50 sheets are shown. Copy it (**File → Make a copy**) or remove old sheets, then refresh. Make sure it is not `.xlsx`. |
@@ -118,3 +129,4 @@ Do **not** use the newest **Email Sent** column alone as the Conditional Column.
 - It sends **anonymous usage counts** to the developer, including your **organization name**. Never your email address, names, recipients, or draft or sheet content.
 - Read the [Privacy Policy](https://github.com/tejitpabari99/tejit-np-auto/blob/main/PRIVACY.md) and [Terms and Conditions](https://github.com/tejitpabari99/tejit-np-auto/blob/main/TERMS.md).
 - Remove access any time at <https://myaccount.google.com/permissions> (look for **NGO Mailer**).
+<!-- {% endraw %} -->

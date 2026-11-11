@@ -19,7 +19,7 @@ test('guide: org name box in dashboard step, screenshots present', () => {
   assert.match(step4, /not your email/i);
   assert.ok(!guide.includes('SCREENSHOT NEEDED'));
   for (const f of ['gmail-draft-variables.png', 'dashboard.png', 'sheet-result-columns.png']) {
-    assert.ok(guide.includes('(docs/images/' + f + ')'), f);
+    assert.ok(guide.includes('src="docs/images/' + f + '"'), f);
     assert.ok(require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'docs', 'images', f)), f + ' exists');
   }
   assert.ok(guide.includes('Scroll to the bottom of the screen and click **Continue**.'));
@@ -32,7 +32,7 @@ test('guide: headings the install skill reads, and short', () => {
   assert.match(guide, /^## What it does$/m);
   assert.match(guide, /^## What you need$/m);
   assert.match(guide, /^\*\*Open the tool:\*\* <https:\/\/go\.tejitpabari\.com\/tejit-np-auto-emailer>$/m);
-  assert.ok(guide.trimEnd().split('\n').length < 130);
+  assert.ok(guide.split('\n').filter((l) => l.trim()).length < 110);
 });
 
 test('guide: external service permission row', () => {
@@ -59,4 +59,20 @@ test('README: one usage-counts line with Terms/Privacy links; Automations table 
   assert.ok(readme.includes('## Automations\n\n' + TABLE));
   assert.match(readme, /anonymous usage counts[^\n]*\[Terms\]\(TERMS\.md\)[^\n]*\[Privacy\]\(PRIVACY\.md\)/i);
   assert.strictEqual((readme.match(/usage counts/gi) || []).length, 1);
+});
+
+test('guide: Pages rendering safety (raw wrap, table spacing, img tags)', () => {
+  const lines = guide.split('\n');
+  assert.strictEqual(lines[0], '<!-- {% raw %} -->');
+  assert.strictEqual(lines.filter((l) => l.trim()).pop(), '<!-- {% endraw %} -->');
+  assert.strictEqual((guide.match(/\{% raw %\}/g) || []).length, 1);
+  lines.forEach((l, i) => {
+    if (/^\|\s*:?-{3,}/.test(l)) {
+      assert.ok(/^\|/.test(lines[i - 1]), 'header before separator at ' + i);
+      assert.strictEqual(lines[i - 2].trim(), '', 'blank line before table at line ' + (i - 1));
+    }
+  });
+  assert.ok(!/!\[/.test(guide), 'no markdown images');
+  assert.ok(/<img src="docs\/images\/[^"]+" alt="[^"]*" width="\d+">/.test(guide));
+  assert.ok(!guide.includes('send-test-email.png'));
 });
