@@ -51,6 +51,13 @@
         <i class="bi bi-book"></i> Learn how to use this script
       </a>
 
+      <!-- Organization name (required) -->
+      <div class="mb-4">
+        <label class="form-label" for="orgName">Organization name</label>
+        <input type="text" id="orgName" class="form-control" maxlength="100" autocomplete="organization">
+        <small class="text-muted d-block">Your organization's name, not your email.</small>
+      </div>
+
       <!-- 1. Spreadsheet Selection -->
       <div class="mb-4">
         <label class="form-label d-flex align-items-center">
@@ -201,6 +208,11 @@
         </div>
       </div>
       <div id="status" class="mt-3 text-center fw-bold"></div>
+      <p class="text-muted small text-center mt-4 mb-0">
+        The plugin collects anonymized usage metrics, for your organization (eg number of emails sent, or which step failed). No PII, or user data is collected.
+        <a href="https://github.com/tejitpabari99/tejit-np-auto/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy Policy</a> &middot;
+        <a href="https://github.com/tejitpabari99/tejit-np-auto/blob/main/TERMS.md" target="_blank" rel="noopener noreferrer">Terms and Conditions</a>
+      </p>
     </div>
   </div>
 
@@ -224,6 +236,8 @@
       // Initialize Bootstrap tooltips
       var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
       tooltipTriggerList.map(function (el) { return new bootstrap.Tooltip(el) });
+
+      loadUsageSettings();
 
       // Load spreadsheets with Select2
       console.log("Frontend: Loading spreadsheets...");
@@ -339,6 +353,58 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    // Organization name: pre-fill from server, validate, save before sending
+    function loadUsageSettings() {
+      google.script.run
+        .withSuccessHandler(s => {
+          if (s && s.org) document.getElementById('orgName').value = s.org;
+        })
+        .withFailureHandler(() => {})
+        .getUsageSettings();
+    }
+
+    // Returns the cleaned org name, or '' if invalid (1-100 chars, no @)
+    function cleanOrgName(raw) {
+      const org = String(raw || '').replace(/\s+/g, ' ').trim();
+      return (org.length >= 1 && org.length <= 100 && org.indexOf('@') === -1) ? org : '';
+    }
+
+    // Validate + save the org name first; run onSaved only after the save succeeds
+    let orgSaving = false;
+    function setFlowButtons(disabled) {
+      document.getElementById('sendBtn').disabled = disabled;
+      document.getElementById('testBtn').disabled = disabled;
+    }
+    function saveOrgThen(onSaved) {
+      if (orgSaving || document.getElementById('sendBtn').disabled || document.getElementById('testBtn').disabled) return;
+      const org = cleanOrgName(document.getElementById('orgName').value);
+      if (!org) {
+        alert("Please enter your organization's name (1-100 characters, not an email address).");
+        return;
+      }
+      orgSaving = true;
+      setFlowButtons(true);
+      google.script.run
+        .withSuccessHandler(res => {
+          orgSaving = false;
+          setFlowButtons(false); // the flow re-disables its own button once validated/confirmed
+          if (res && res.org) document.getElementById('orgName').value = res.org;
+          onSaved();
+        })
+        .withFailureHandler(err => {
+          orgSaving = false;
+          setFlowButtons(false);
+          alert((err && err.message) || 'Could not save the organization name.');
+        })
+        .saveOrganization(org);
+    }
+
+    function newRunId() {
+      let id = '';
+      while (id.length < 16) id += Math.random().toString(36).slice(2);
+      return id.slice(0, 16);
     }
 
     // Build <option> list for the tab dropdown
@@ -520,6 +586,10 @@
     console.log("Frontend: Send Test Email function loaded");
 
     function sendTest() {
+      saveOrgThen(doSendTest);
+    }
+
+    function doSendTest() {
       console.log("Frontend: ========== TEST EMAIL START ==========");
       console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
 
@@ -574,6 +644,10 @@
     console.log("Frontend: Sending Email function loaded");
 
     function startSending() {
+      saveOrgThen(doStartSending);
+    }
+
+    function doStartSending() {
       console.log("Frontend: ========== EMAIL BATCH START ==========");
       console.log(`Frontend: Timestamp - ${new Date().toISOString()}`);
 
@@ -662,6 +736,14 @@
       let currentIndex = 0; // Index in the eligibleRowIndices array
       let emailsSent = 0;
       let emailsFailed = 0;
+      let reportOk = 0; // successes excluding skipped rows (for the usage report)
+      const runId = newRunId();
+      let reported = false;
+      function reportOnce(stopped) {
+        if (reported) return;
+        reported = true;
+        try { google.script.run.reportBatch(reportOk, emailsFailed, stopped, runId); } catch (e) {}
+      }
       let consecutiveErrors = 0;
       const MAX_CONSECUTIVE_ERRORS = 5;
       const totalRows = batchInfo.totalRows;
@@ -688,6 +770,7 @@
 
           btn.disabled = false;
           btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+          reportOnce(false);
           return;
         }
 
@@ -710,6 +793,7 @@
           .withSuccessHandler(function(result) {
             if (result.success) {
               emailsSent++;
+              if (!result.skipped) reportOk++;
               consecutiveErrors = 0;
               console.log(`Frontend: Email ${progress}/${totalRows} sent successfully`);
             } else {
@@ -732,6 +816,7 @@
 
               btn.disabled = false;
               btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+              reportOnce(true);
               return;
             }
 
@@ -759,6 +844,7 @@
 
               btn.disabled = false;
               btn.innerHTML = '<i class="bi bi-send-fill"></i> Send Emails';
+              reportOnce(true);
               return;
             }
 

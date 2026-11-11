@@ -8,7 +8,7 @@ function fixture() {
   const second = makeSheet('Donors', [['Email', 'Name', 'Sent'], ['d1@x.org', 'Dan', ''], ['d2@x.org', 'Dee', 'TRUE'], ['d3@x.org', 'Di', 'false']]);
   const ss = makeSpreadsheet([first, second]);
   const drafts = [makeDraft('Hello', '<p>Hi {{Name}}</p>')];
-  return { first, second, ...loadCodeGs({ spreadsheets: { S1: ss }, drafts }) };
+  return { first, second, ...loadCodeGs({ spreadsheets: { S1: ss }, drafts, props: { usage_org: 'Test Org' } }) };
 }
 
 test('getSheetTabs lists all tabs with index', () => {

@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const crypto = require('node:crypto');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -51,10 +52,13 @@ function makeDraft(subject, html) {
   };
 }
 
-// opts: { spreadsheets: {id: spreadsheet}, drafts: [draft], userEmail }
+// opts: { spreadsheets: {id: spreadsheet}, drafts: [draft], userEmail, props: {k: v}, fetchThrows }
 function loadCodeGs(opts = {}) {
   const logs = [];
   const sent = [];
+  const fetches = [];
+  const props = Object.assign({}, opts.props || {});
+  let uuidN = 0;
   const capture = (...a) => logs.push(a.map(String).join(' '));
   const ctx = {
     console: { log: capture, warn: capture, error: capture, info: capture },
@@ -77,6 +81,23 @@ function loadCodeGs(opts = {}) {
     Utilities: {
       formatDate: () => '2026-11-10 12:00:00',
       sleep: () => {},
+      getUuid: () => {
+        const h = crypto.createHash('sha1').update('uuid' + (uuidN++)).digest('hex').slice(0, 32);
+        return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+      },
+    },
+    UrlFetchApp: {
+      fetch: (url, options) => {
+        if (opts.fetchThrows) throw new Error('fetch failed');
+        fetches.push({ url, options });
+        return { getResponseCode: () => 200 };
+      },
+    },
+    PropertiesService: {
+      getUserProperties: () => ({
+        getProperty: (k) => (Object.prototype.hasOwnProperty.call(props, k) ? props[k] : null),
+        setProperty: (k, v) => { props[k] = String(v); },
+      }),
     },
     DriveApp: { searchFiles: () => ({ hasNext: () => false }) },
     ScriptApp: { getOAuthToken: () => 'tok' },
@@ -101,7 +122,7 @@ function loadCodeGs(opts = {}) {
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'code.gs'), 'utf8'), ctx, { filename: 'code.gs' });
-  return { ctx, logs, sent };
+  return { ctx, logs, sent, fetches, props };
 }
 
 // Fake google.script.run: records every server call and keeps the last handlers.

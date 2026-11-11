@@ -36,7 +36,7 @@ test('loadTabs fills dropdown, selects first tab, loads preview with that tab', 
 });
 
 test('onTabChange reloads preview for chosen tab', () => {
-  const { ctx, run } = loadIndexScript({ values: { tabSelect: 'Vols' } });
+  const { ctx, run } = loadIndexScript({ values: { tabSelect: 'Vols', orgName: 'Acme' } });
   vm.runInContext("currentSheetId = 'S1'", ctx);
   ctx.onTabChange();
   assert.deepStrictEqual(run.state.calls.pop(), { name: 'getPreviewData', args: ['S1', 'Vols'] });
@@ -50,24 +50,28 @@ test('clearTabs empties the tab dropdown', () => {
 });
 
 test('sendTest passes tab and validates it', () => {
-  let h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: '' } });
+  let h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: '', orgName: 'Acme' } });
   h.ctx.sendTest();
+  h.run.state.ok({ org: 'Acme' });
   assert.match(h.alerts[0], /tab/i);
-  assert.strictEqual(h.run.state.calls.length, 0);
+  assert.strictEqual(h.run.state.calls.length, 1);
 
-  h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: 'Vols' } });
+  h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: 'Vols', orgName: 'Acme' } });
   h.ctx.sendTest();
-  assert.deepStrictEqual(h.run.state.calls[0], { name: 'sendTestEmail', args: ['S1', 'D', 'Email', 'Vols'] });
+  h.run.state.ok({ org: 'Acme' });
+  assert.deepStrictEqual(h.run.state.calls[1], { name: 'sendTestEmail', args: ['S1', 'D', 'Email', 'Vols'] });
 });
 
 test('startSending validates tab and passes it to sendEmailBatch and sendSingleEmail', () => {
-  let h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: '' } });
+  let h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: '', orgName: 'Acme' } });
   h.ctx.startSending();
+  h.run.state.ok({ org: 'Acme' });
   assert.match(h.alerts[0], /tab/i);
 
-  h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: 'Vols', conditionalColumn: 'Sent' } });
+  h = loadIndexScript({ values: { sheetSelect: 'S1', draftSelect: 'D', emailColumn: 'Email', tabSelect: 'Vols', conditionalColumn: 'Sent', orgName: 'Acme' } });
   h.ctx.startSending();
-  const call = h.run.state.calls[0];
+  h.run.state.ok({ org: 'Acme' });
+  const call = h.run.state.calls[1];
   assert.strictEqual(call.name, 'sendEmailBatch');
   assert.strictEqual(call.args[call.args.length - 1], 'Vols');
   h.run.state.ok({ totalRows: 1, eligibleRowIndices: [1], sentColIndex: 4, errorColIndex: 5, conditionalColIndex: 3 });

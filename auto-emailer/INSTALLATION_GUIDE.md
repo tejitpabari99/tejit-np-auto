@@ -1,6 +1,6 @@
 # NGO Auto Emailer — Installation and How-To Guide
 
-_Updated November 2026: choose a tab, safer dashboard._
+_Updated November 2026: organization name box, anonymous usage counts, one extra permission, choose a tab, safer dashboard._
 
 **Open the tool:** <https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec>
 
@@ -158,6 +158,7 @@ _(Picture coming soon: the Continue button at the bottom of the permission scree
 | Send email on your behalf | To send the emails, from your address. |
 | See, edit, create and delete your spreadsheets | To read your list and (if you choose) write the "Email Sent" results back into it. |
 | See your primary Google Account email address | To send the **test email** to you. |
+| Connect to an external service | Only used to send anonymous usage counts to ping.tejitpabari.com. Never your emails, drafts or sheet content. |
 
 ---
 
@@ -171,6 +172,11 @@ After permission, you see the **NGO Mailer** dashboard.
 
 <!-- SCREENSHOT NEEDED: dashboard-with-tab -->
 _(Picture coming soon: the dashboard showing the new Select tab list)_
+
+**Organization name** — type your organization's name at the top (your organization's name, not your email). It is required before you can send a test or real email, and it is remembered for next time.
+
+<!-- SCREENSHOT NEEDED: org-name-box -->
+_(Picture coming soon: the Organization name box at the top of the dashboard.)_
 
 1. **Select Your Spreadsheet** — click the box and start typing your sheet's name to search for it.
 2. **Select Tab** — pick the tab (sheet) inside that spreadsheet that has your list of people. It fills in after you pick a spreadsheet, and the first tab is chosen for you. If your list is on a different tab, change it here.
@@ -263,7 +269,9 @@ After adding or changing columns, **refresh the tool's page** and pick your spre
 ## Privacy
 
 - The tool runs **as you, from your own Google account**. It reads your spreadsheet and your Gmail draft, sends the emails from your Gmail, and (if you choose) writes results back into your sheet.
-- The current code is public in this repo, and it does **not** send your data to the developer or any other company.
+- The tool sends **anonymous usage counts** to the developer: tool version, whether it was a test or a real send, your **organization name** as typed, a random code, how many emails were sent and failed, whether a send stopped early, an error category, and the time.
+- It **never** sends your email address, names, recipients, draft subjects or contents, or sheet names or contents.
+- Details: [Privacy](https://github.com/tejitpabari99/tejit-np-auto/blob/main/PRIVACY.md) and [Terms](https://github.com/tejitpabari99/tejit-np-auto/blob/main/TERMS.md).
 - Google keeps basic **run logs** in the developer's Google project. Since the November 2026 update, the tool's own log lines no longer include your email address, your draft's subject, your sheet name or your recipients' email addresses. They only record things like counts, row numbers and error messages. Error messages can contain text that Google itself provides (for example a rejected address), so logs are not guaranteed to be free of personal details.
 - The developer can change the tool's code later. The code is public here, so anyone can check it.
 - You can remove its access at any time at <https://myaccount.google.com/permissions> (look for **NGO Mailer**).

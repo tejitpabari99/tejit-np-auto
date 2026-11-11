@@ -12,7 +12,7 @@ function fixture(extra = {}) {
   const sheet = makeSheet('Donors', [['Email', 'Donor Name', 'Sent'], ['alice.secret@x.org', 'Alice', ''], ['bob.secret@x.org', 'Bob', 'false']]);
   const ss = makeSpreadsheet([sheet]);
   ss.getName = () => 'Private Donor Spreadsheet';
-  return loadCodeGs({ spreadsheets: { S1: ss }, drafts: [makeDraft(SUBJECT, '<p>Hi {{Donor Name}}</p>')], userEmail: USER, ...extra });
+  return loadCodeGs({ spreadsheets: { S1: ss }, drafts: [makeDraft(SUBJECT, '<p>Hi {{Donor Name}}</p>')], userEmail: USER, props: { usage_org: 'Test Org' }, ...extra });
 }
 
 test('getOAuthToken is removed', () => {
@@ -60,9 +60,9 @@ test('errors stay useful: missing draft error still names the subject to the use
   assert.throws(() => ctx.getEmailPreview('S1', 'Nope', 'Email', 'Donors'), /Draft with subject "Nope" not found/);
 });
 
-test('appsscript.json: unused scope and Drive advanced service removed, others kept', () => {
+test('appsscript.json: external_request scope present, Drive advanced service removed, others kept', () => {
   const m = JSON.parse(fs.readFileSync(path.join(ROOT, 'appsscript.json'), 'utf8'));
-  assert.ok(!m.oauthScopes.includes('https://www.googleapis.com/auth/script.external_request'));
+  assert.ok(m.oauthScopes.includes('https://www.googleapis.com/auth/script.external_request'));
   assert.ok(!(m.dependencies && m.dependencies.enabledAdvancedServices && m.dependencies.enabledAdvancedServices.length));
   for (const s of ['drive.readonly', 'gmail.readonly', 'gmail.send', 'spreadsheets', 'userinfo.email']) {
     assert.ok(m.oauthScopes.includes('https://www.googleapis.com/auth/' + s), s);

@@ -8,6 +8,8 @@ Free, simple automations that take repetitive work off a nonprofit team's plate.
 |---|---|---|---|
 | `auto-emailer` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec) |
 
+Our tools send anonymous usage counts (organization name and counts only). See [Terms](TERMS.md) and [Privacy](PRIVACY.md).
+
 ## Get help installing
 
 If you use the **tejit-np-plugin** with your AI assistant, ask it to help you install any automation above. It reads the latest guide from this repo and walks you through it step by step.

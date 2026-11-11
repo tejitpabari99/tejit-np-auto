@@ -1,3 +1,131 @@
+const VERSION = "0.1.1";
+const PING_URL_ = 'https://ping.tejitpabari.com/ping';
+const MAX_COUNT_ = 5000;
+const USAGE_STEPS_ = ['load_sheet', 'load_tab', 'load_draft', 'send'];
+const USAGE_REASONS_ = ['no_access', 'not_found', 'quota', 'bad_input', 'other'];
+
+/**
+ * Maps an error to a coarse reason category. The message is only inspected
+ * locally and is never sent anywhere.
+ */
+function classifyReason_(error) {
+  const msg = String(error && error.message !== undefined ? error.message : (error || '')).toLowerCase();
+  if (/quota|too many times|limit exceeded/.test(msg)) return 'quota';
+  if (/permission|authoriz|access denied|not have access/.test(msg)) return 'no_access';
+  if (/not found|deleted|unable to open/.test(msg)) return 'not_found';
+  if (/invalid|required|exceeds|must be|no data/.test(msg)) return 'bad_input';
+  return 'other';
+}
+
+function randomChars_(n) {
+  return Utilities.getUuid().replace(/-/g, '').toLowerCase().slice(0, n);
+}
+
+function clampCount_(v) {
+  const num = Number(v);
+  if (v === null || v === '' || typeof v === 'boolean' || !isFinite(num)) return null;
+  return Math.max(0, Math.min(MAX_COUNT_, Math.floor(num)));
+}
+
+/**
+ * Returns the stored anonymous uid, creating it once (u_ + 8 hex) if missing or malformed.
+ */
+function getOrCreateUid_(props) {
+  const existing = props.getProperty('usage_uid');
+  if (existing && /^u_[0-9a-f]{8}$/.test(existing)) return existing;
+  const uid = 'u_' + randomChars_(8);
+  props.setProperty('usage_uid', uid);
+  return uid;
+}
+
+/**
+ * Returns the saved organization name for pre-filling the UI.
+ */
+function getUsageSettings() {
+  const org = PropertiesService.getUserProperties().getProperty('usage_org');
+  return { org: org || '' };
+}
+
+/**
+ * Validates and saves the organization name (per Google user). The server
+ * re-normalizes: control chars stripped, whitespace collapsed, 1-100 chars, no "@".
+ */
+function saveOrganization(org) {
+  const clean = String(org === null || org === undefined ? '' : org)
+    .replace(/\s+/g, ' ')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .trim();
+  if (!clean) throw new Error('Please enter your organization name.');
+  if (clean.indexOf('@') !== -1) throw new Error("Please enter your organization's name, not an email address.");
+  if (clean.length > 100) throw new Error('Organization name must be 100 characters or fewer.');
+  PropertiesService.getUserProperties().setProperty('usage_org', clean);
+  return { org: clean };
+}
+
+function requireOrganization_() {
+  if (!PropertiesService.getUserProperties().getProperty('usage_org')) {
+    throw new Error('Organization name is required');
+  }
+}
+
+/**
+ * Sends one anonymous usage ping. PII firewall: `fields` is an allowlist,
+ * `extra` only accepts x_ keys with numeric/boolean/safe-token values.
+ * Never throws and never logs the URL.
+ */
+function logUsage_(event, fields, extra) {
+  try {
+    if (typeof event !== 'string' || !/^[a-z0-9_]{1,50}$/.test(event)) return;
+    fields = fields || {};
+    extra = extra || {};
+    const props = PropertiesService.getUserProperties();
+    const pairs = [
+      ['tool_type', 'script'],
+      ['tool_name', 'auto-emailer'],
+      ['event', event],
+      ['v', VERSION],
+      ['origin', 'google_script']
+    ];
+    const org = props.getProperty('usage_org');
+    if (org) pairs.push(['org', org]);
+    pairs.push(['uid', getOrCreateUid_(props)]);
+
+    if (fields.mode === 'test' || fields.mode === 'prod') pairs.push(['mode', fields.mode]);
+    ['n', 'ok', 'fail'].forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(fields, k)) {
+        const c = clampCount_(fields[k]);
+        if (c !== null) pairs.push([k, String(c)]);
+      }
+    });
+    if (USAGE_STEPS_.indexOf(fields.step) !== -1) pairs.push(['step', fields.step]);
+    if (Object.prototype.hasOwnProperty.call(fields, 'reason')) {
+      pairs.push(['reason', USAGE_REASONS_.indexOf(fields.reason) !== -1 ? fields.reason : 'other']);
+    }
+
+    let run = null;
+    Object.keys(extra).forEach(k => {
+      if (!/^x_[a-z0-9_]{1,28}$/.test(k)) return;
+      const v = extra[k];
+      if (k === 'x_run') {
+        if (typeof v === 'string' && /^[a-z0-9]{8,32}$/.test(v)) run = v;
+        return;
+      }
+      let str = null;
+      if (typeof v === 'number' && isFinite(v)) str = String(v);
+      else if (typeof v === 'boolean') str = String(v);
+      else if (typeof v === 'string' && /^[a-z0-9_]{1,30}$/.test(v)) str = v;
+      if (str !== null && str.indexOf('@') === -1) pairs.push([k, str]);
+    });
+    pairs.push(['x_run', run || randomChars_(12)]);
+    pairs.push(['t', randomChars_(8)]);
+
+    const url = PING_URL_ + '?' + pairs.map(p => encodeURIComponent(p[0]) + '=' + encodeURIComponent(p[1])).join('&');
+    UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  } catch (e) {
+    console.warn('usage ping failed');
+  }
+}
+
 /**
  * Serves the HTML frontend.
  */
@@ -66,6 +194,7 @@ function getRecentSheets() {
     return sheets;
   } catch (error) {
     console.error(`Code.gs: ERROR in getRecentSheets - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_sheet', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to fetch spreadsheets: ${error.message}. Please ensure you have granted Drive permissions.`);
   }
@@ -104,6 +233,7 @@ function getGmailDrafts() {
     return draftsList;
   } catch (error) {
     console.error(`Code.gs: ERROR in getGmailDrafts - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_draft', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to fetch Gmail drafts: ${error.message}. Please ensure you have granted Gmail permissions.`);
   }
@@ -124,6 +254,7 @@ function getSheetTabs(sheetId) {
     return tabs;
   } catch (error) {
     console.error(`Code.gs: ERROR in getSheetTabs - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_tab', reason: classifyReason_(error) }, {});
     if (error.message.includes('perhaps it was deleted')) {
       throw new Error(`Spreadsheet not found. The file may have been deleted or you may not have permission to access it.`);
     }
@@ -193,6 +324,7 @@ function getPreviewData(sheetId, sheetName) {
     };
   } catch (error) {
     console.error(`Code.gs: ERROR in getPreviewData - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_sheet', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
 
     // Provide more specific error messages based on error type
@@ -565,6 +697,7 @@ function getEmailPreview(sheetId, draftSubject, emailColumn, sheetName) {
     };
   } catch (error) {
     console.error(`Code.gs: ERROR in getEmailPreview - ${error.message}`);
+    logUsage_('step_failed', { step: 'load_draft', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to generate email preview: ${error.message}`);
   }
@@ -765,6 +898,7 @@ function processAndSend(sheetId, draftSubject, emailColumn, startRow = 1, sheetN
  * Send test email to current user
  */
 function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
+  requireOrganization_();
   console.log("Code.gs: Sending test email");
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
 
@@ -792,10 +926,12 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
     });
 
     console.log("Code.gs: Test email sent successfully");
+    logUsage_('batch_done', { mode: 'test', n: 1, ok: 1, fail: 0 }, {});
 
     return { success: true, sentTo: userEmail };
   } catch (error) {
     console.error(`Code.gs: ERROR in sendTestEmail - ${error.message}`);
+    logUsage_('step_failed', { step: 'send', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     throw new Error(`Failed to send test email: ${error.message}`);
   }
@@ -806,6 +942,7 @@ function sendTestEmail(sheetId, draftSubject, emailColumn, sheetName) {
  * This allows for real-time progress updates in the UI
  */
 function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitEmails = null, storeResults = true, conditionalColumn = '', sheetName) {
+  requireOrganization_();
   console.log("Code.gs: ==================== BATCH START ====================");
   console.log("Code.gs: Send Email Batch started");
   console.log(`Code.gs: Parameters - sheetId: ${sheetId}`);
@@ -958,9 +1095,26 @@ function sendEmailBatch(sheetId, draftSubject, emailColumn, startRow = 1, limitE
 
   } catch (error) {
     console.error(`Code.gs: ERROR in sendEmailBatch - ${error.message}`);
+    logUsage_('step_failed', { step: 'send', reason: classifyReason_(error) }, {});
     console.error(`Code.gs: Stack trace - ${error.stack}`);
     console.log("Code.gs: ==================== BATCH SETUP FAILED ====================");
     throw new Error(`Batch setup failed: ${error.message}`);
+  }
+}
+
+/**
+ * Called once by the client when a send loop finishes or stops. Sends one
+ * anonymous aggregate ping; inputs are clamped and never trusted.
+ */
+function reportBatch(ok, fail, stopped, runId) {
+  try {
+    const okN = clampCount_(ok) || 0;
+    const failN = clampCount_(fail) || 0;
+    const extra = { x_run: runId };
+    if (stopped === true || stopped === 1) extra.x_stopped = 1;
+    logUsage_('batch_done', { mode: 'prod', n: okN + failN, ok: okN, fail: failN }, extra);
+  } catch (e) {
+    console.warn('usage ping failed');
   }
 }
 
