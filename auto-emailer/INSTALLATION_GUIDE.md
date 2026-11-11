@@ -2,7 +2,7 @@
 
 _Updated November 2026: organization name box, anonymous usage counts, one extra permission, choose a tab, safer dashboard._
 
-**Open the tool:** <https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec>
+**Open the tool:** <https://go.tejitpabari.com/tejit-np-auto-emailer>
 
 There is nothing to download or install. The tool is a web page that runs inside your own Google account. This guide walks you through setting it up the first time and sending your first batch of emails.
 
@@ -104,7 +104,7 @@ _(Picture coming soon: a Gmail draft with `{{Full Name}}`-style placeholders.)_
 
 ## Step 3 — Open the tool
 
-1. Click this link: <https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec>
+1. Click this link: <https://go.tejitpabari.com/tejit-np-auto-emailer>
 2. Tip: bookmark it so you can find it again.
 3. If you are signed in to more than one Google account, Google asks which one to use. Pick the account that has your sheet and your draft.
 

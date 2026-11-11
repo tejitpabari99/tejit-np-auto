@@ -10,7 +10,7 @@ const readme = fs.readFileSync(path.join(ROOT, '..', 'README.md'), 'utf8');
 
 const TABLE = `| Automation | What it does | Guide | Open the tool |
 |---|---|---|---|
-| \`auto-emailer\` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://script.google.com/macros/s/AKfycbw3OyqV-_Q4ubNhc4Rwjz0YeS3lmKdCaITJx3rsnp9CFzLpMvWW2XilI9LNTHIXsmle/exec) |
+| \`auto-emailer\` | Sends a personal email to many people at once, using a list in a Google Sheet and a Gmail draft as the template. | [Installation guide](auto-emailer/INSTALLATION_GUIDE.md) | [Open NGO Auto Emailer](https://go.tejitpabari.com/tejit-np-auto-emailer) |
 `;
 
 test('guide: org box step with screenshot placeholder', () => {
