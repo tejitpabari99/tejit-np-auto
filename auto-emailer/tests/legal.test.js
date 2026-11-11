@@ -8,16 +8,16 @@ const { loadIndexScript, ROOT } = require('./helpers');
 const REPO = path.join(ROOT, '..');
 const BASE = 'https://github.com/tejitpabari99/tejit-np-auto/blob/main/';
 
-test('footer shows exact notice and Terms/Privacy links with safe attributes', () => {
+test('footer shows exact notice and Privacy Policy/Terms and Conditions links with safe attributes', () => {
   const { html } = loadIndexScript();
-  assert.ok(html.includes('Your personal details stay anonymous. We collect your organization name.'));
+  assert.ok(html.includes('The plugin collects anonymized usage metrics, for your organization (eg number of emails sent, or which step failed). No PII, or user data is collected.'));
   for (const f of ['TERMS.md', 'PRIVACY.md']) {
     const m = html.match(new RegExp(`<a [^>]*href="${BASE}${f}"[^>]*>`));
     assert.ok(m, f);
     assert.match(m[0], /target="_blank"/);
     assert.match(m[0], /rel="noopener noreferrer"/);
   }
-  assert.match(html, />Terms<\/a>\s*(?:&middot;|·)\s*<a[^>]*>Privacy<\/a>/);
+  assert.match(html, />Privacy Policy<\/a>\s*(?:&middot;|·)\s*<a[^>]*>Terms and Conditions<\/a>/);
 });
 
 test('TERMS.md and PRIVACY.md exist with required content only', () => {
